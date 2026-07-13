@@ -17,6 +17,7 @@ backend/start-backend.ps1
 .env
 .env.local
 .env.*.local
+tokens.json
 
 # IDE
 .idea/
@@ -40,6 +41,8 @@ backend/backend.log
 backend/logs/
 backend/docs/postgres-migration-report.md
 backend/fix_test*.py
+hs_err_pid*.log
+replay_pid*.log
 
 # Misc
 coverage/
