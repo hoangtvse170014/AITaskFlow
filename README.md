@@ -67,6 +67,8 @@ EXE121/
 │   │   └── types/         # TypeScript types
 │   └── public/
 ├── docker-compose.yml     # PostgreSQL container
+├── docker-compose.dev.yml # PostgreSQL container for dev
+├── init-scripts/          # Auto-run SQL scripts for Postgres init
 ├── SPEC.md               # Detailed specification
 └── README.md             # This file
 ```
@@ -85,19 +87,28 @@ EXE121/
 #### 1. Clone the repository
 
 ```bash
-cd EXE121
+git clone https://github.com/hoangtvse170014/AITaskFlow.git
+cd AITaskFlow
 ```
 
-#### 2. Start PostgreSQL
+#### 2. Start PostgreSQL with Docker
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-This will start PostgreSQL on port `5432` with:
+This starts PostgreSQL on port `5432` and automatically runs `init-scripts/00-init.sql` on first startup to create schema and seed demo data.
+
+Default DB settings:
 - Database: `taskflow`
-- Username: `taskflow`
-- Password: `taskflow123`
+- Username: `postgres`
+- Password: `postgres`
+
+To reset DB demo data:
+```bash
+docker compose down -v
+docker compose up -d
+```
 
 #### 3. Start Backend
 
@@ -117,7 +128,7 @@ Or run the JAR file:
 java -jar target/taskflow-backend-1.0.0.jar
 ```
 
-The backend will start on `http://localhost:8080`
+The backend will start on `http://localhost:8081` in dev profile, or `http://localhost:8080` in prod profile.
 
 #### 4. Start Frontend
 
@@ -133,29 +144,28 @@ npm run dev
 
 The frontend will start on `http://localhost:3000`
 
-### Default Configuration
+### Environment Variables
 
-#### Backend (application.yml)
-```yaml
-server:
-  port: 8080
+Create `.env.local` in `frontend/` if needed:
 
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/taskflow
-    username: taskflow
-    password: taskflow123
-
-jwt:
-  secret: TaskFlowSecretKey2026VeryLongSecretKeyForJWTSigning1234567890
-  access-token-expiration: 900000  # 15 minutes
-  refresh-token-expiration: 604800000  # 7 days
-```
-
-#### Frontend (.env.local)
-```
+```env
 NEXT_PUBLIC_API_URL=http://localhost:8080/api
 ```
+
+Backend reads from `application.yml` and supports env overrides:
+- `DB_URL`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `JWT_SECRET`
+- `GEMINI_API_KEY`
+
+Do NOT commit secrets. Use local env vars or Docker env files.
+
+## Database
+
+- Schema and seed are versioned in `init-scripts/00-init.sql`.
+- `docker-compose.yml` mounts `init-scripts` into `/docker-entrypoint-initdb.d` so Postgres auto-initializes.
+- For production, use a proper migration strategy and do not ship seed data.
 
 ## API Endpoints
 
@@ -202,75 +212,6 @@ NEXT_PUBLIC_API_URL=http://localhost:8080/api
 |--------|----------|-------------|
 | GET | `/api/dashboard/stats?workspaceId=` | Get statistics |
 
-## Database Schema
-
-### Users
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| email | VARCHAR(255) | Unique email |
-| password | VARCHAR(255) | Hashed password |
-| full_name | VARCHAR(100) | Display name |
-| avatar_url | VARCHAR(500) | Profile image URL |
-
-### Workspaces
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | VARCHAR(100) | Workspace name |
-| slug | VARCHAR(100) | URL-friendly name |
-| owner_id | UUID | Owner user reference |
-
-### Projects
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| workspace_id | UUID | Parent workspace |
-| name | VARCHAR(100) | Project name |
-| key | VARCHAR(10) | Project key (e.g., PROJ) |
-| color | VARCHAR(7) | Hex color code |
-
-### Tasks
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| project_id | UUID | Parent project |
-| task_number | INTEGER | Auto-increment per project |
-| title | VARCHAR(255) | Task title |
-| status | VARCHAR(20) | TODO, IN_PROGRESS, REVIEW, DONE |
-| priority | VARCHAR(20) | LOW, MEDIUM, HIGH, URGENT |
-| assignee_id | UUID | Assigned user |
-| due_date | DATE | Due date |
-
-## UI/UX Design
-
-### Color Palette
-
-| Name | Hex | Usage |
-|------|-----|-------|
-| Background | #09090b | Main background |
-| Surface | #18181b | Cards, modals |
-| Primary | #6366f1 | Primary actions (Indigo) |
-| Success | #22c55e | Success states |
-| Warning | #f59e0b | Warning states |
-| Error | #ef4444 | Error states |
-
-### Task Priorities
-| Priority | Color |
-|----------|-------|
-| Urgent | #ef4444 (Red) |
-| High | #f97316 (Orange) |
-| Medium | #eab308 (Yellow) |
-| Low | #22c55e (Green) |
-
-### Task Statuses
-| Status | Color |
-|---------|-------|
-| To Do | #71717a (Gray) |
-| In Progress | #3b82f6 (Blue) |
-| Review | #a855f7 (Purple) |
-| Done | #22c55e (Green) |
-
 ## Development
 
 ### Backend Development
@@ -304,23 +245,6 @@ npm run build
 
 # Start production server
 npm start
-```
-
-## Environment Variables
-
-### Frontend (.env.local)
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
-```
-
-### Backend (application.yml)
-Configure in `src/main/resources/application.yml`:
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/taskflow
-    username: taskflow
-    password: taskflow123
 ```
 
 ## License
