@@ -29,6 +29,7 @@ import { TaskTableView } from "@/components/tasks/TaskTableView";
 import { ProjectMembersDialog } from "@/components/projects/ProjectMembersDialog";
 import { ProjectReport } from "@/components/projects/ProjectReport";
 import { AiDashboardCard } from "@/components/ai/AiDashboardCard";
+import { DocumentationPanel } from "@/components/ai/DocumentationPanel";
 import { TaskFilters } from "@/components/tasks/TaskFilters";
 import { TaskSearch } from "@/components/tasks/TaskSearch";
 import { TaskCalendarView } from "@/components/tasks/TaskCalendarView";
@@ -298,6 +299,12 @@ export default function ProjectBoardPage() {
               projectId={projectId}
               projectName={currentProject?.name || "Project"}
             />
+            {currentWorkspace?.id && (
+              <DocumentationPanel
+                workspaceId={currentWorkspace.id}
+                projectId={projectId}
+              />
+            )}
             <div className="flex items-center border rounded-md">
               <Button
                 variant={viewMode === "kanban" ? "secondary" : "ghost"}

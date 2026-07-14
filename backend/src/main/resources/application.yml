@@ -54,14 +54,14 @@ logging:
     com.taskflow.ai: DEBUG
     org.springframework.security: INFO
 
-gemini:
-  # SECURITY: Do NOT commit a real API key. Provide via GEMINI_API_KEY env var.
-  api-key: ${GEMINI_API_KEY:}
-  model: ${GEMINI_MODEL:gemini-2.0-flash}
-  max-tokens: ${GEMINI_MAX_TOKENS:8192}
-  temperature: ${GEMINI_TEMPERATURE:0.7}
-  timeout-seconds: ${GEMINI_TIMEOUT:120}
-  max-retries: ${GEMINI_RETRIES:3}
+groq:
+  # SECURITY: API key MUST be provided via GROQ_API_KEY env var (see .env.example).
+  api-key: ${GROQ_API_KEY}
+  model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+  max-tokens: ${GROQ_MAX_TOKENS:8192}
+  temperature: ${GROQ_TEMPERATURE:0.7}
+  timeout-seconds: ${GROQ_TIMEOUT:120}
+  max-retries: ${GROQ_RETRIES:3}
 
 server:
   port: ${SERVER_PORT:8081}

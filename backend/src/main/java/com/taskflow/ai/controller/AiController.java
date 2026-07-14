@@ -1,8 +1,10 @@
 package com.taskflow.ai.controller;
 
-import com.taskflow.ai.config.GeminiConfig;
+import com.taskflow.ai.config.GroqConfig;
 import com.taskflow.ai.dto.AiRequest;
 import com.taskflow.ai.dto.AiResponse;
+import com.taskflow.ai.dto.BatchTaskAssignmentRequest;
+import com.taskflow.ai.dto.BatchTaskAssignmentResponse;
 import com.taskflow.ai.dto.ProjectAnalysisResponse;
 import com.taskflow.ai.dto.TaskAssignmentRequest;
 import com.taskflow.ai.dto.TaskAssignmentResponse;
@@ -22,20 +24,20 @@ import java.util.UUID;
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
 @Slf4j
-public class GeminiAiController {
+public class AiController {
 
     private final AiService aiService;
     private final AiProjectAnalyzerService projectAnalyzerService;
     private final AiTaskAssignmentService taskAssignmentService;
-    private final GeminiConfig geminiConfig;
+    private final GroqConfig groqConfig;
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> healthCheck() {
         Map<String, Object> health = Map.of(
-                "enabled", geminiConfig.isValid(),
-                "provider", "Google Gemini",
-                "model", geminiConfig.getModel(),
-                "status", geminiConfig.isValid() ? "READY" : "CONFIGURE_API_KEY"
+                "enabled", groqConfig.isValid(),
+                "provider", "Groq",
+                "model", groqConfig.getModel(),
+                "status", groqConfig.isValid() ? "READY" : "DEMO_MODE"
         );
         return ResponseEntity.ok(health);
     }
@@ -48,12 +50,12 @@ public class GeminiAiController {
             String response = aiService.generate(request.getPrompt());
             long processingTime = System.currentTimeMillis() - startTime;
 
-            return ResponseEntity.ok(AiResponse.success(response, geminiConfig.getModel(), processingTime));
+            return ResponseEntity.ok(AiResponse.success(response, groqConfig.getModel(), processingTime));
         } catch (Exception e) {
             log.error("AI test request failed: {}", e.getMessage());
             long processingTime = System.currentTimeMillis() - startTime;
             return ResponseEntity.internalServerError()
-                    .body(AiResponse.error(e.getMessage(), geminiConfig.getModel()));
+                    .body(AiResponse.error(e.getMessage(), groqConfig.getModel()));
         }
     }
 
@@ -104,6 +106,30 @@ public class GeminiAiController {
             log.error("Task assignment recommendation failed: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(TaskAssignmentResponse.error("Recommendation failed: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/tasks/assign-batch")
+    public ResponseEntity<BatchTaskAssignmentResponse> assignBatch(@Valid @RequestBody BatchTaskAssignmentRequest request) {
+        long startTime = System.currentTimeMillis();
+
+        try {
+            log.info("Received BATCH task assignment: projectId={}, tasks={}",
+                    request.getProjectId(), request.getTasks().size());
+
+            BatchTaskAssignmentResponse response = taskAssignmentService.batchRecommend(request);
+
+            log.info("Batch task assignment completed in {}ms", System.currentTimeMillis() - startTime);
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid batch request: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(BatchTaskAssignmentResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Batch task assignment failed: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(BatchTaskAssignmentResponse.error("Batch assignment failed: " + e.getMessage()));
         }
     }
 }

@@ -32,6 +32,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskCommentRepository taskCommentRepository;
     private final TaskActivityLogRepository taskActivityLogRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final SubTaskRepository subTaskRepository;
     private final WorkspaceService workspaceService;
     private final NotificationService notificationService;
 
@@ -277,6 +278,11 @@ public class TaskServiceImpl implements TaskService {
 
         Task task = taskRepository.findByIdAndProjectId(taskId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", "id", taskId));
+
+        // Cascade cleanup so the FK constraint subtasks.task_id -> tasks.id
+        // doesn't reject the delete.
+        subTaskRepository.deleteByTaskId(taskId);
+        subTaskRepository.flush();
 
         taskRepository.delete(task);
     }

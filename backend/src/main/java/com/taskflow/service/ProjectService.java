@@ -2,10 +2,12 @@ package com.taskflow.service;
 
 import com.taskflow.dto.request.AddProjectMemberRequest;
 import com.taskflow.dto.request.CreateProjectRequest;
+import com.taskflow.dto.request.UpdateProjectRequest;
 import com.taskflow.dto.response.ProjectMemberResponse;
 import com.taskflow.dto.response.ProjectResponse;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface ProjectService {
@@ -16,7 +18,7 @@ public interface ProjectService {
 
     ProjectResponse createProject(UUID workspaceId, CreateProjectRequest request);
 
-    ProjectResponse updateProject(UUID workspaceId, UUID projectId, CreateProjectRequest request);
+    ProjectResponse updateProject(UUID workspaceId, UUID projectId, Map<String, Object> updates);
 
     void deleteProject(UUID workspaceId, UUID projectId);
 

@@ -34,4 +34,12 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     @Query("SELECT COUNT(wm) FROM WorkspaceMember wm WHERE wm.workspace.id = :workspaceId")
     long countByWorkspaceId(UUID workspaceId);
+
+    /**
+     * Resolve a workspace member id to its underlying user id. Used by the
+     * autonomous project creation service to translate AI-assigned member ids
+     * into the user id expected by TaskService.createTask/updateTask.
+     */
+    @Query("SELECT wm.user.id FROM WorkspaceMember wm WHERE wm.id = :memberId")
+    Optional<UUID> findUserIdByMemberId(UUID memberId);
 }

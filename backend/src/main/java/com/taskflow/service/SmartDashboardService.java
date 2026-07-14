@@ -25,6 +25,7 @@ public class SmartDashboardService {
     private final ActivityLogRepository activityLogRepository;
 
     public SmartDashboardResponse getSmartDashboard(UUID workspaceId, UUID userId) {
+        long startTime = System.currentTimeMillis();
         SmartDashboardResponse response = new SmartDashboardResponse();
 
         // Load the workspace task set ONCE; everything else filters from this list
@@ -37,8 +38,14 @@ public class SmartDashboardService {
         response.setRecentActivity(getRecentActivity(workspaceId));
         response.setWorkloadChart(getWorkloadChart(workspaceId, workspaceTasks));
         response.setAiSuggestions(generateAiSuggestions(workspaceId, userId, workspaceTasks));
+        response.setRecommendedActions(generateRecommendedActions(workspaceId, userId, workspaceTasks));
         response.setTeamPerformance(getTeamPerformance(workspaceId, workspaceTasks));
         response.setStats(getStats(workspaceId, workspaceTasks));
+        response.setRiskScore(computeRiskScore(workspaceTasks));
+        response.setProjectHealth(computeProjectHealth(workspaceId, workspaceTasks));
+        response.setDelayedTasks(getDelayedTasks(workspaceTasks));
+        response.setLastUpdatedAt(java.time.LocalDateTime.now().toString());
+        response.setProcessingTimeMs(System.currentTimeMillis() - startTime);
 
         return response;
     }
@@ -361,5 +368,354 @@ public class SmartDashboardService {
                         task.getDueDate().isBefore(LocalDate.now()) &&
                         task.getStatus() != TaskStatus.DONE)
                 .build();
+    }
+
+    // ---------------------------------------------------------------------
+    // Risk Score
+    // ---------------------------------------------------------------------
+
+    private RiskScore computeRiskScore(List<Task> workspaceTasks) {
+        List<RiskFactor> factors = new ArrayList<>();
+
+        LocalDate today = LocalDate.now();
+        long total = workspaceTasks.size();
+        long overdue = workspaceTasks.stream()
+                .filter(t -> t.getDueDate() != null && t.getDueDate().isBefore(today))
+                .filter(t -> t.getStatus() != TaskStatus.DONE)
+                .count();
+
+        long unassigned = workspaceTasks.stream()
+                .filter(t -> t.getAssignee() == null && t.getStatus() != TaskStatus.DONE)
+                .count();
+
+        long nearDeadline = workspaceTasks.stream()
+                .filter(t -> t.getDueDate() != null)
+                .filter(t -> !t.getDueDate().isBefore(today))
+                .filter(t -> t.getDueDate().isBefore(today.plusDays(3)))
+                .filter(t -> t.getStatus() != TaskStatus.DONE)
+                .count();
+
+        long overdueHighPriority = workspaceTasks.stream()
+                .filter(t -> t.getDueDate() != null && t.getDueDate().isBefore(today))
+                .filter(t -> t.getStatus() != TaskStatus.DONE)
+                .filter(t -> t.getPriority() == TaskPriority.HIGH || t.getPriority() == TaskPriority.URGENT)
+                .count();
+
+        // Weight contributions out of 100.
+        int overdueWeight = clamp((int) Math.round((double) overdue / Math.max(1, total) * 250), 0, 40);
+        int unassignedWeight = clamp((int) Math.round((double) unassigned / Math.max(1, total) * 200), 0, 20);
+        int nearDeadlineWeight = clamp((int) Math.round((double) nearDeadline / Math.max(1, total) * 150), 0, 20);
+        int overdueHighWeight = clamp((int) overdueHighPriority * 5, 0, 20);
+
+        int score = Math.min(100, overdueWeight + unassignedWeight + nearDeadlineWeight + overdueHighWeight);
+        String level = scoreToLevel(score);
+
+        if (overdue > 0) {
+            factors.add(RiskFactor.builder()
+                    .code("OVERDUE")
+                    .label("Overdue tasks")
+                    .weight(overdueWeight)
+                    .level(overdue > 5 ? "HIGH" : overdue > 2 ? "MEDIUM" : "LOW")
+                    .count((int) overdue)
+                    .recommendation("Reschedule or escalate overdue tasks immediately.")
+                    .build());
+        }
+        if (unassigned > 0) {
+            factors.add(RiskFactor.builder()
+                    .code("UNASSIGNED")
+                    .label("Unassigned tasks")
+                    .weight(unassignedWeight)
+                    .level(unassigned > 5 ? "HIGH" : "MEDIUM")
+                    .count((int) unassigned)
+                    .recommendation("Assign tasks to team members using AI recommendation.")
+                    .build());
+        }
+        if (nearDeadline > 0) {
+            factors.add(RiskFactor.builder()
+                    .code("NEAR_DEADLINE")
+                    .label("Tasks due within 3 days")
+                    .weight(nearDeadlineWeight)
+                    .level(nearDeadline > 5 ? "HIGH" : "MEDIUM")
+                    .count((int) nearDeadline)
+                    .recommendation("Prioritize upcoming deadlines.")
+                    .build());
+        }
+        if (overdueHighPriority > 0) {
+            factors.add(RiskFactor.builder()
+                    .code("OVERDUE_HIGH_PRIORITY")
+                    .label("Overdue high-priority tasks")
+                    .weight(overdueHighWeight)
+                    .level("HIGH")
+                    .count((int) overdueHighPriority)
+                    .recommendation("Escalate high-priority overdue items to project manager.")
+                    .build());
+        }
+
+        String summary;
+        if (score >= 75) summary = "Workspace is at critical risk. Immediate action required.";
+        else if (score >= 50) summary = "Workspace risk is elevated. Several issues need attention.";
+        else if (score >= 25) summary = "Workspace is moderately healthy with some concerns.";
+        else summary = "Workspace is healthy. Keep up the momentum.";
+
+        return RiskScore.builder()
+                .score(score)
+                .level(level)
+                .factors(factors)
+                .summary(summary)
+                .build();
+    }
+
+    private String scoreToLevel(int score) {
+        if (score >= 75) return "CRITICAL";
+        if (score >= 50) return "HIGH";
+        if (score >= 25) return "MEDIUM";
+        return "LOW";
+    }
+
+    private int clamp(int v, int min, int max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    // ---------------------------------------------------------------------
+    // Project Health (per-project breakdown)
+    // ---------------------------------------------------------------------
+
+    private ProjectHealth computeProjectHealth(UUID workspaceId, List<Task> workspaceTasks) {
+        List<Project> projects = projectRepository.findAllByWorkspaceId(workspaceId);
+
+        Map<UUID, List<Task>> tasksByProject = workspaceTasks.stream()
+                .filter(t -> t.getProject() != null)
+                .collect(Collectors.groupingBy(t -> t.getProject().getId()));
+
+        LocalDate today = LocalDate.now();
+        List<ProjectHealthItem> items = new ArrayList<>();
+        int excellent = 0, good = 0, atRisk = 0, critical = 0;
+        int totalScore = 0;
+        int scoredProjects = 0;
+
+        for (Project p : projects) {
+            List<Task> projectTasks = tasksByProject.getOrDefault(p.getId(), Collections.emptyList());
+            int total = projectTasks.size();
+            int completed = (int) projectTasks.stream()
+                    .filter(t -> t.getStatus() == TaskStatus.DONE).count();
+            int overdue = (int) projectTasks.stream()
+                    .filter(t -> t.getDueDate() != null && t.getDueDate().isBefore(today))
+                    .filter(t -> t.getStatus() != TaskStatus.DONE).count();
+            int unassigned = (int) projectTasks.stream()
+                    .filter(t -> t.getAssignee() == null && t.getStatus() != TaskStatus.DONE).count();
+
+            double completionRate = total > 0 ? Math.round((double) completed / total * 100 * 100) / 100.0 : 0;
+
+            // Per-project health: start at 100, subtract penalties.
+            int health = 100;
+            if (total > 0) {
+                health -= (int) Math.round((double) overdue / total * 100);
+                health -= (int) Math.round((double) unassigned / total * 60);
+                if (completionRate < 20 && total > 5) health -= 10;
+            } else {
+                health = 100; // empty project = healthy
+            }
+            health = clamp(health, 0, 100);
+
+            String healthLevel;
+            if (health >= 85) { healthLevel = "EXCELLENT"; excellent++; }
+            else if (health >= 65) { healthLevel = "GOOD"; good++; }
+            else if (health >= 40) { healthLevel = "AT_RISK"; atRisk++; }
+            else { healthLevel = "CRITICAL"; critical++; }
+
+            List<String> issues = new ArrayList<>();
+            if (overdue > 0) issues.add(overdue + " overdue task(s)");
+            if (unassigned > 0) issues.add(unassigned + " unassigned task(s)");
+            if (completionRate < 25 && total > 0) issues.add("low completion (" + completionRate + "%)");
+
+            totalScore += health;
+            scoredProjects++;
+
+            items.add(ProjectHealthItem.builder()
+                    .projectId(p.getId().toString())
+                    .projectName(p.getName())
+                    .projectKey(p.getKey())
+                    .healthLevel(healthLevel)
+                    .healthScore(health)
+                    .totalTasks(total)
+                    .overdueTasks(overdue)
+                    .unassignedTasks(unassigned)
+                    .completionRate(completionRate)
+                    .trend("STABLE")
+                    .issues(issues)
+                    .build());
+        }
+
+        // Sort by health ascending so the most problematic projects surface first.
+        items.sort(Comparator.comparingInt(ProjectHealthItem::getHealthScore));
+
+        double workspaceHealth = scoredProjects > 0
+                ? Math.round((double) totalScore / scoredProjects * 100) / 100.0
+                : 100.0;
+
+        return ProjectHealth.builder()
+                .projects(items)
+                .summary(ProjectHealthSummary.builder()
+                        .excellent(excellent)
+                        .good(good)
+                        .atRisk(atRisk)
+                        .critical(critical)
+                        .workspaceHealthScore(workspaceHealth)
+                        .build())
+                .build();
+    }
+
+    // ---------------------------------------------------------------------
+    // Delayed tasks
+    // ---------------------------------------------------------------------
+
+    private List<DelayedTask> getDelayedTasks(List<Task> workspaceTasks) {
+        LocalDate today = LocalDate.now();
+        return workspaceTasks.stream()
+                .filter(t -> t.getDueDate() != null && t.getDueDate().isBefore(today))
+                .filter(t -> t.getStatus() != TaskStatus.DONE)
+                .sorted(Comparator.comparing(Task::getDueDate))
+                .limit(20)
+                .map(t -> DelayedTask.builder()
+                        .taskId(t.getId().toString())
+                        .taskKey((t.getProject() != null ? t.getProject().getKey() : "") + "-" + t.getTaskNumber())
+                        .title(t.getTitle())
+                        .projectName(t.getProject() != null ? t.getProject().getName() : null)
+                        .assigneeName(t.getAssignee() != null ? t.getAssignee().getFullName() : null)
+                        .assigneeAvatar(t.getAssignee() != null ? t.getAssignee().getAvatarUrl() : null)
+                        .dueDate(t.getDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
+                        .daysOverdue((int) ChronoUnit.DAYS.between(t.getDueDate(), today))
+                        .priority(t.getPriority() != null ? t.getPriority().name() : null)
+                        .impact(daysOverdueImpact(t))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private String daysOverdueImpact(Task t) {
+        long days = ChronoUnit.DAYS.between(t.getDueDate(), LocalDate.now());
+        if (t.getPriority() == TaskPriority.URGENT || days > 7) return "HIGH";
+        if (t.getPriority() == TaskPriority.HIGH || days > 3) return "MEDIUM";
+        return "LOW";
+    }
+
+    // ---------------------------------------------------------------------
+    // Recommended Actions (concrete next steps)
+    // ---------------------------------------------------------------------
+
+    private List<RecommendedAction> generateRecommendedActions(UUID workspaceId, UUID userId,
+                                                                List<Task> workspaceTasks) {
+        List<RecommendedAction> actions = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+
+        // 1. Highest priority: overdue critical/high tasks -> escalate.
+        List<Task> overdueCritical = workspaceTasks.stream()
+                .filter(t -> t.getDueDate() != null && t.getDueDate().isBefore(today))
+                .filter(t -> t.getStatus() != TaskStatus.DONE)
+                .filter(t -> t.getPriority() == TaskPriority.URGENT || t.getPriority() == TaskPriority.HIGH)
+                .sorted(Comparator.comparing(Task::getDueDate))
+                .limit(3)
+                .toList();
+
+        if (!overdueCritical.isEmpty()) {
+            Task first = overdueCritical.get(0);
+            String projectId = first.getProject() != null ? first.getProject().getId().toString() : "";
+            actions.add(RecommendedAction.builder()
+                    .id(UUID.randomUUID().toString())
+                    .type("ESCALATE")
+                    .title("Escalate " + overdueCritical.size() + " overdue high-priority task(s)")
+                    .description("These tasks are overdue and need immediate attention or replanning.")
+                    .priority("HIGH")
+                    .actionLabel("Review Overdue")
+                    .actionEndpoint("/api/dashboard/smart?workspaceId=" + workspaceId)
+                    .actionMethod("GET")
+                    .metadata(Map.of("count", String.valueOf(overdueCritical.size()),
+                            "projectId", projectId))
+                    .build());
+        }
+
+        // 2. Overloaded members -> reassign.
+        WorkloadChart workload = getWorkloadChart(workspaceId, workspaceTasks);
+        long overloaded = workload.getMembers().stream()
+                .filter(m -> "OVERLOADED".equals(m.getStatus())).count();
+        if (overloaded > 0) {
+            actions.add(RecommendedAction.builder()
+                    .id(UUID.randomUUID().toString())
+                    .type("REASSIGN")
+                    .title("Rebalance " + overloaded + " overloaded team member(s)")
+                    .description("Run AI task assignment to redistribute work from overloaded members.")
+                    .priority("HIGH")
+                    .actionLabel("Run AI Reassignment")
+                    .actionEndpoint("/api/ai/tasks/assign-batch")
+                    .actionMethod("POST")
+                    .build());
+        }
+
+        // 3. Unassigned tasks -> assign.
+        long unassigned = workspaceTasks.stream()
+                .filter(t -> t.getAssignee() == null && t.getStatus() != TaskStatus.DONE).count();
+        if (unassigned > 0) {
+            actions.add(RecommendedAction.builder()
+                    .id(UUID.randomUUID().toString())
+                    .type("REASSIGN")
+                    .title("Assign " + unassigned + " unassigned task(s)")
+                    .description("Use AI to assign these tasks based on role and workload.")
+                    .priority("MEDIUM")
+                    .actionLabel("Assign Now")
+                    .actionEndpoint("/api/ai/tasks/assign-batch")
+                    .actionMethod("POST")
+                    .build());
+        }
+
+        // 4. Near-deadline upcoming -> review.
+        long nearDeadline = workspaceTasks.stream()
+                .filter(t -> t.getDueDate() != null)
+                .filter(t -> !t.getDueDate().isBefore(today))
+                .filter(t -> t.getDueDate().isBefore(today.plusDays(3)))
+                .filter(t -> t.getStatus() != TaskStatus.DONE)
+                .count();
+        if (nearDeadline >= 3) {
+            actions.add(RecommendedAction.builder()
+                    .id(UUID.randomUUID().toString())
+                    .type("REVIEW")
+                    .title(nearDeadline + " tasks due in the next 3 days")
+                    .description("Review upcoming deadlines and ensure they are on track.")
+                    .priority("MEDIUM")
+                    .actionLabel("View Calendar")
+                    .actionEndpoint("/api/dashboard/smart?workspaceId=" + workspaceId)
+                    .actionMethod("GET")
+                    .build());
+        }
+
+        // 5. Many TODO tasks -> split or prioritize.
+        long todoTasks = workspaceTasks.stream()
+                .filter(t -> t.getStatus() == TaskStatus.TODO).count();
+        if (todoTasks > workspaceTasks.size() * 0.6 && workspaceTasks.size() > 10) {
+            actions.add(RecommendedAction.builder()
+                    .id(UUID.randomUUID().toString())
+                    .type("PRIORITIZE")
+                    .title("Backlog is large - prioritize " + todoTasks + " TODO tasks")
+                    .description("Many tasks are in TODO. Review priorities and split large tasks into subtasks.")
+                    .priority("LOW")
+                    .actionLabel("View Backlog")
+                    .actionEndpoint("/api/dashboard/smart?workspaceId=" + workspaceId)
+                    .actionMethod("GET")
+                    .build());
+        }
+
+        // 6. If overall workspace health is good, surface a "celebrate" action.
+        if (actions.isEmpty()) {
+            actions.add(RecommendedAction.builder()
+                    .id(UUID.randomUUID().toString())
+                    .type("REVIEW")
+                    .title("Workspace is healthy")
+                    .description("All key metrics look good. Consider scheduling a retrospective or planning next sprint.")
+                    .priority("LOW")
+                    .actionLabel("View Dashboard")
+                    .actionEndpoint("/api/dashboard/smart?workspaceId=" + workspaceId)
+                    .actionMethod("GET")
+                    .build());
+        }
+
+        return actions;
     }
 }

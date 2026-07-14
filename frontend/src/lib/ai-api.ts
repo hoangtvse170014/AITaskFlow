@@ -1,6 +1,21 @@
 import { api } from "./api";
 import type { ApiResponse } from "@/types";
-import type { ProjectAnalysisResponse, TaskAssignmentRequest, TaskAssignmentResponse, DocumentAiResponse, WorkspaceQuestionRequest, WorkspaceAnswerResponse } from "@/types/ai";
+import type {
+  ProjectAnalysisResponse,
+  TaskAssignmentRequest,
+  TaskAssignmentResponse,
+  DocumentAiResponse,
+  WorkspaceQuestionRequest,
+  WorkspaceAnswerResponse,
+  SprintGenerateRequest,
+  SprintGenerateResponse,
+  DocumentationRequest,
+  DocumentationResponse,
+  DocumentationTypeInfo,
+  DemoModeRequest,
+  DemoModeResponse,
+  DemoModeInfo,
+} from "@/types/ai";
 
 function unwrapAiResponse<T>(response: { data: ApiResponse<T> | T }): T {
   const payload = response.data as any;
@@ -57,5 +72,40 @@ export const aiApi = {
   askWorkspace: async (data: WorkspaceQuestionRequest): Promise<WorkspaceAnswerResponse> => {
     const response = await api.post(`/ai/workspace/chat`, data);
     return unwrapAiResponse<WorkspaceAnswerResponse>(response);
+  },
+
+  generateSprint: async (data: SprintGenerateRequest): Promise<SprintGenerateResponse> => {
+    const response = await api.post(`/ai/workspace/sprint/generate`, data);
+    return unwrapAiResponse<SprintGenerateResponse>(response);
+  },
+
+  // ---- AI Documentation ----
+
+  generateDocumentation: async (data: DocumentationRequest): Promise<DocumentationResponse> => {
+    const response = await api.post(`/ai/documentation`, data);
+    return unwrapAiResponse<DocumentationResponse>(response);
+  },
+
+  listDocumentationTypes: async (): Promise<DocumentationTypeInfo[]> => {
+    const response = await api.get(`/ai/documentation/types`);
+    const payload = response.data as any;
+    if (payload && typeof payload === "object" && "data" in payload) {
+      return (payload.data ?? []) as DocumentationTypeInfo[];
+    }
+    if (Array.isArray(payload)) return payload as DocumentationTypeInfo[];
+    if (payload && Array.isArray(payload.data)) return payload.data as DocumentationTypeInfo[];
+    return [];
+  },
+
+  // ---- Demo Mode ----
+
+  startDemo: async (data: DemoModeRequest): Promise<DemoModeResponse> => {
+    const response = await api.post(`/ai/demo/start`, data);
+    return unwrapAiResponse<DemoModeResponse>(response);
+  },
+
+  getDemoInfo: async (): Promise<DemoModeInfo> => {
+    const response = await api.get(`/ai/demo/info`);
+    return unwrapAiResponse<DemoModeInfo>(response);
   },
 };

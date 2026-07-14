@@ -25,7 +25,16 @@ public class WorkspaceAnswerResponse {
 
     private List<RelatedItem> relatedTasks;
 
+    private List<RelatedItem> relatedMembers;
+
+    private List<RelatedItem> relatedGoals;
+
+    private List<RelatedItem> relatedPages;
+
     private List<String> suggestions;
+
+    /** Detected intent for the question, e.g. SUMMARIZE_WORKSPACE or MOST_RISKY_PROJECT. */
+    private String intent;
 
     private Long processingTimeMs;
 

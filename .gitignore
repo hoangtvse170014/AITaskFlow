@@ -35,15 +35,32 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.log
 backend.log
 backend/backend.err
 backend/backend.log
+backend/backend-err.log
+backend/backend-out.log
+backend/backend_err.log
+backend/backend_new.log
+frontend/frontend.log
+frontend/frontend.err
+logs/
 backend/logs/
-backend/docs/postgres-migration-report.md
-backend/fix_test*.py
+backend/preview*.json
+backend/sse-listener.ps1
+err-resp.json
+qa-harness.ps1
 hs_err_pid*.log
 replay_pid*.log
+
+# Misc working files (planning only, not source)
+meeting.md
+tech-spec.md
 
 # Misc
 coverage/
 .cache/
+
+# One-off test fix scripts (not production code)
+backend/fix_test*.py

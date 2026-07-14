@@ -2,6 +2,7 @@ package com.taskflow.controller;
 
 import com.taskflow.dto.request.AddProjectMemberRequest;
 import com.taskflow.dto.request.CreateProjectRequest;
+import com.taskflow.dto.request.UpdateProjectRequest;
 import com.taskflow.dto.response.ApiResponse;
 import com.taskflow.dto.response.ProjectMemberResponse;
 import com.taskflow.dto.response.ProjectResponse;
@@ -19,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -56,8 +58,8 @@ public class ProjectController {
     public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
             @PathVariable UUID workspaceId,
             @PathVariable UUID projectId,
-            @Valid @RequestBody CreateProjectRequest request) {
-        ProjectResponse project = projectService.updateProject(workspaceId, projectId, request);
+            @RequestBody Map<String, Object> updates) {
+        ProjectResponse project = projectService.updateProject(workspaceId, projectId, updates);
         return ResponseEntity.ok(ApiResponse.success(project, "Project updated successfully"));
     }
 

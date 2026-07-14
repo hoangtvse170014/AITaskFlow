@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ user, isAuthenticated: true });
         toast.success("Welcome back!");
         // Return workspace ID for redirect
-        return response.data.data.workspaceId || null;
+        return (response.data.data as any).workspaceId || null;
       }
       return null;
     } catch (error) {
@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ user, isAuthenticated: true });
         toast.success("Account created successfully!");
         // Return workspace ID for redirect
-        return response.data.data.workspaceId || null;
+        return (response.data.data as any).workspaceId || null;
       }
       return null;
     } catch (error) {

@@ -40,7 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/health", "/actuator/health").permitAll()
                         // SECURITY: AI endpoints MUST be authenticated to prevent unauthorized
-                        // access to paid Gemini API and to enforce workspace-level authorization.
+                        // access to paid Groq API and to enforce workspace-level authorization.
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",

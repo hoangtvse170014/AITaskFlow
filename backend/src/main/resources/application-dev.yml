@@ -23,6 +23,14 @@ spring:
 server:
   port: ${SERVER_PORT:8081}
 
+groq:
+  api-key: ${GROQ_API_KEY}
+  model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+  max-tokens: ${GROQ_MAX_TOKENS:8192}
+  temperature: ${GROQ_TEMPERATURE:0.7}
+  timeout-seconds: ${GROQ_TIMEOUT:120}
+  max-retries: ${GROQ_RETRIES:3}
+
 logging:
   level:
     com.taskflow: DEBUG

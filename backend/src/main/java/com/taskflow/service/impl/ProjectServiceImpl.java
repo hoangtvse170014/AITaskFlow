@@ -7,6 +7,7 @@ import com.taskflow.dto.response.ProjectResponse;
 import com.taskflow.entity.Project;
 import com.taskflow.entity.ProjectMember;
 import com.taskflow.entity.Role;
+import com.taskflow.entity.Task;
 import com.taskflow.entity.User;
 import com.taskflow.entity.Workspace;
 import com.taskflow.exception.BadRequestException;
@@ -15,6 +16,7 @@ import com.taskflow.exception.ResourceNotFoundException;
 import com.taskflow.repository.ProjectMemberRepository;
 import com.taskflow.repository.ProjectRepository;
 import com.taskflow.repository.RoleRepository;
+import com.taskflow.repository.SubTaskRepository;
 import com.taskflow.repository.TaskRepository;
 import com.taskflow.repository.UserRepository;
 import com.taskflow.repository.WorkspaceRepository;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +43,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final TaskRepository taskRepository;
+    private final SubTaskRepository subTaskRepository;
     private final WorkspaceService workspaceService;
     private final ActivityLogService activityLogService;
 
@@ -103,7 +107,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional
-    public ProjectResponse updateProject(UUID workspaceId, UUID projectId, CreateProjectRequest request) {
+    public ProjectResponse updateProject(UUID workspaceId, UUID projectId, Map<String, Object> updates) {
         User currentUser = getCurrentUser();
         if (!workspaceService.isWorkspaceMember(workspaceId, currentUser.getId())) {
             throw new ForbiddenException("You are not a member of this workspace");
@@ -112,15 +116,25 @@ public class ProjectServiceImpl implements ProjectService {
         Project project = projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
 
-        project.setName(request.getName());
-        if (request.getDescription() != null) {
-            project.setDescription(request.getDescription());
+        if (updates.containsKey("name") && updates.get("name") != null) {
+            project.setName((String) updates.get("name"));
         }
-        if (request.getColor() != null) {
-            project.setColor(request.getColor());
+        if (updates.containsKey("description")) {
+            project.setDescription((String) updates.get("description"));
         }
-        if (request.getIcon() != null) {
-            project.setIcon(request.getIcon());
+        if (updates.containsKey("color") && updates.get("color") != null) {
+            project.setColor((String) updates.get("color"));
+        }
+        if (updates.containsKey("icon")) {
+            project.setIcon((String) updates.get("icon"));
+        }
+        if (updates.containsKey("key") && updates.get("key") != null) {
+            // Validate new key doesn't conflict
+            String newKey = ((String) updates.get("key")).toUpperCase();
+            if (!newKey.equals(project.getKey()) && projectRepository.existsByWorkspaceIdAndKey(workspaceId, newKey)) {
+                throw new BadRequestException("Project key already exists in this workspace");
+            }
+            project.setKey(newKey);
         }
 
         project = projectRepository.save(project);
@@ -141,6 +155,18 @@ public class ProjectServiceImpl implements ProjectService {
 
         Project project = projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
+
+        // Cascade cleanup of children before the project row is dropped.
+        // PostgreSQL FK constraints would otherwise reject the DELETE on
+        // "tasks" because "subtasks" still reference them.
+        subTaskRepository.deleteByProjectId(projectId);
+        subTaskRepository.flush();
+
+        List<Task> projectTasks = taskRepository.findAllByProjectIdOrderByPosition(projectId);
+        if (!projectTasks.isEmpty()) {
+            taskRepository.deleteAll(projectTasks);
+            taskRepository.flush();
+        }
 
         projectRepository.delete(project);
     }

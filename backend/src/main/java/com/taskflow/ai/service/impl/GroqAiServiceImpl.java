@@ -2,7 +2,7 @@ package com.taskflow.ai.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.taskflow.ai.config.GeminiConfig;
+import com.taskflow.ai.config.GroqConfig;
 import com.taskflow.ai.dto.AiResponse;
 import com.taskflow.ai.exception.AiApiException;
 import com.taskflow.ai.exception.AiException;
@@ -23,20 +23,19 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class GeminiAiServiceImpl implements AiService {
+@org.springframework.context.annotation.Primary
+public class GroqAiServiceImpl implements AiService {
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models";
+    private static final String GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
     
-    // Demo mode responses for when API key is not configured
     private static final Random RANDOM = new Random(42);
 
-    private final GeminiConfig geminiConfig;
+    private final GroqConfig groqConfig;
     private final ObjectMapper objectMapper;
 
     @Override
     public String generate(String prompt) {
-        // Demo mode: return intelligent demo response without API call
-        if (!geminiConfig.isValid()) {
+        if (!groqConfig.isValid()) {
             log.info("Running in DEMO MODE - generating demo AI response");
             return generateDemoResponse(prompt);
         }
@@ -47,34 +46,85 @@ public class GeminiAiServiceImpl implements AiService {
             WebClient webClient = createWebClient();
             Map<String, Object> requestBody = buildRequestBody(prompt);
 
+            log.debug("Sending request to Groq API...");
+
             String response = webClient
                     .post()
-                    .uri(buildUri())
+                    .uri(GROQ_API_URL)
                     .contentType(MediaType.APPLICATION_JSON)
+                    .header("Authorization", "Bearer " + groqConfig.getApiKey())
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofSeconds(geminiConfig.getTimeoutSeconds()))
-                    .retryWhen(Retry.backoff(geminiConfig.getMaxRetries(), Duration.ofSeconds(1))
+                    .timeout(Duration.ofSeconds(groqConfig.getTimeoutSeconds()))
+                    .retryWhen(Retry.backoff(groqConfig.getMaxRetries(), Duration.ofSeconds(1))
                             .filter(this::isRetryable)
-                            .doBeforeRetry(signal -> log.warn("Retrying Gemini request: {}", signal.failure().getMessage())))
-                    .doOnError(e -> log.error("Gemini request failed: {}", e.getMessage()))
+                            .doBeforeRetry(signal -> log.warn("Retrying Groq request: {}", signal.failure().getMessage())))
+                    .doOnError(e -> log.error("Groq request failed: {}", e.getMessage()))
                     .block();
 
             long processingTime = System.currentTimeMillis() - startTime;
             return extractContent(response, processingTime);
 
         } catch (WebClientResponseException e) {
-            log.error("Gemini API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.error("Groq API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw handleApiError(e);
         } catch (WebClientRequestException e) {
             if (isTimeoutException(e)) {
-                throw new AiTimeoutException("Gemini request timed out after " + geminiConfig.getTimeoutSeconds() + "s",
-                        geminiConfig.getTimeoutSeconds());
+                throw new AiTimeoutException("Groq request timed out after " + groqConfig.getTimeoutSeconds() + "s",
+                        groqConfig.getTimeoutSeconds());
             }
-            throw new AiException("Failed to connect to Gemini API: " + e.getMessage(), e);
+            throw new AiException("Failed to connect to Groq API: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("Unexpected error during Gemini request", e);
+            log.error("Unexpected error during Groq request", e);
+            throw new AiException("Unexpected error: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public String generateWithSystemPrompt(String systemPrompt, String userPrompt) {
+        if (!groqConfig.isValid()) {
+            log.info("Running in DEMO MODE - generating demo AI response");
+            return generateDemoResponse(userPrompt);
+        }
+
+        long startTime = System.currentTimeMillis();
+
+        try {
+            WebClient webClient = createWebClient();
+            Map<String, Object> requestBody = buildRequestBodyWithCustomSystem(systemPrompt, userPrompt);
+
+            log.debug("Sending request to Groq API with custom system prompt...");
+
+            String response = webClient
+                    .post()
+                    .uri(GROQ_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("Authorization", "Bearer " + groqConfig.getApiKey())
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofSeconds(groqConfig.getTimeoutSeconds()))
+                    .retryWhen(Retry.backoff(groqConfig.getMaxRetries(), Duration.ofSeconds(1))
+                            .filter(this::isRetryable)
+                            .doBeforeRetry(signal -> log.warn("Retrying Groq request: {}", signal.failure().getMessage())))
+                    .doOnError(e -> log.error("Groq request failed: {}", e.getMessage()))
+                    .block();
+
+            long processingTime = System.currentTimeMillis() - startTime;
+            return extractContent(response, processingTime);
+
+        } catch (WebClientResponseException e) {
+            log.error("Groq API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw handleApiError(e);
+        } catch (WebClientRequestException e) {
+            if (isTimeoutException(e)) {
+                throw new AiTimeoutException("Groq request timed out after " + groqConfig.getTimeoutSeconds() + "s",
+                        groqConfig.getTimeoutSeconds());
+            }
+            throw new AiException("Failed to connect to Groq API: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Unexpected error during Groq request", e);
             throw new AiException("Unexpected error: " + e.getMessage(), e);
         }
     }
@@ -82,52 +132,42 @@ public class GeminiAiServiceImpl implements AiService {
     private String generateDemoResponse(String prompt) {
         String lowerPrompt = prompt.toLowerCase();
         
-        // Project Analysis
         if (lowerPrompt.contains("project") && lowerPrompt.contains("analysis")) {
             return generateProjectAnalysisDemo();
         }
         
-        // Task Recommendation
         if (lowerPrompt.contains("task") && lowerPrompt.contains("recommend")) {
             return generateTaskRecommendationDemo(prompt);
         }
         
-        // Document AI / Summarization
         if (lowerPrompt.contains("document") || lowerPrompt.contains("summar") || lowerPrompt.contains("page")) {
             return generateDocumentSummaryDemo();
         }
         
-        // Workspace Assistant / Chat
         if (lowerPrompt.contains("workspace") || lowerPrompt.contains("team") || lowerPrompt.contains("summary")) {
             return generateWorkspaceSummaryDemo();
         }
         
-        // Workload Analysis
         if (lowerPrompt.contains("workload") || lowerPrompt.contains("overload") || lowerPrompt.contains("busy")) {
             return generateWorkloadAnalysisDemo();
         }
         
-        // Overdue tasks
         if (lowerPrompt.contains("overdue") || lowerPrompt.contains("late")) {
             return generateOverdueAnalysisDemo();
         }
         
-        // Goal analysis
         if (lowerPrompt.contains("goal") || lowerPrompt.contains("okr")) {
             return generateGoalAnalysisDemo();
         }
         
-        // Requirements generation
         if (lowerPrompt.contains("requirement") || lowerPrompt.contains("spec")) {
             return generateRequirementsDemo();
         }
         
-        // Priority
         if (lowerPrompt.contains("priorit") || lowerPrompt.contains("urgent")) {
             return generatePriorityAnalysisDemo();
         }
         
-        // Default intelligent response
         return generateGeneralResponse(prompt);
     }
     
@@ -146,7 +186,7 @@ public class GeminiAiServiceImpl implements AiService {
             "### Recommendations:\n" +
             "- Redistribute tasks from Nguyễn Minh to other members\n" +
             "- Consider extending deadline by 1 week\n" +
-            "- Prioritize core AI features overnice-to-haves"
+            "- Prioritize core AI features over nice-to-haves"
         };
         return analyses[RANDOM.nextInt(analyses.length)];
     }
@@ -355,88 +395,115 @@ public class GeminiAiServiceImpl implements AiService {
                 .build();
     }
 
-    private String buildUri() {
-        return GEMINI_API_URL + "/" + geminiConfig.getModel() + ":generateContent?key=" + geminiConfig.getApiKey();
+    private Map<String, Object> buildRequestBody(String prompt) {
+        Map<String, Object> systemMessage = new LinkedHashMap<>();
+        systemMessage.put("role", "system");
+        systemMessage.put("content", "You are TaskFlow AI, a helpful assistant for project management and team collaboration.");
+
+        Map<String, Object> userMessage = new LinkedHashMap<>();
+        userMessage.put("role", "user");
+        userMessage.put("content", prompt);
+
+        return Map.of(
+                "model", groqConfig.getModel(),
+                "messages", List.of(systemMessage, userMessage),
+                "temperature", groqConfig.getTemperature()
+        );
     }
 
-    private Map<String, Object> buildRequestBody(String prompt) {
-        return Map.of(
-                "contents", List.of(
-                        Map.of("parts", List.of(
-                                Map.of("text", prompt)
-                        ))
-                ),
-                "generationConfig", Map.of(
-                        "temperature", geminiConfig.getTemperature(),
-                        "maxOutputTokens", geminiConfig.getMaxTokens(),
-                        "stopSequences", List.of("\n\n", "```", "```json", "Looks solid", "Double check")
-                )
-        );
+    private Map<String, Object> buildRequestBodyWithCustomSystem(String systemPrompt, String userPrompt) {
+        Map<String, Object> systemMessage = new LinkedHashMap<>();
+        systemMessage.put("role", "system");
+        systemMessage.put("content", systemPrompt);
+
+        Map<String, Object> userMessage = new LinkedHashMap<>();
+        userMessage.put("role", "user");
+        userMessage.put("content", userPrompt);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", groqConfig.getModel());
+        body.put("messages", List.of(systemMessage, userMessage));
+        body.put("temperature", groqConfig.getTemperature());
+        body.put("max_tokens", groqConfig.getMaxTokens());
+
+        return body;
     }
 
     private String extractContent(String response, long processingTime) {
         if (response == null || response.isBlank()) {
-            log.warn("Gemini returned empty response");
-            throw new AiException("Gemini returned empty response");
+            log.warn("Groq returned empty response");
+            throw new AiException("Groq returned empty response");
         }
+
+        log.info("RAW GROQ RESPONSE received in {}ms", processingTime);
 
         try {
             JsonNode root = objectMapper.readTree(response);
 
-            JsonNode candidates = root.path("candidates");
-            if (candidates.isMissingNode() || candidates.isNull() || !candidates.isArray() || candidates.isEmpty()) {
-                JsonNode promptFeedback = root.path("promptFeedback");
-                if (!promptFeedback.isMissingNode()) {
-                    String blockReason = promptFeedback.path("blockReason").asText("");
-                    if (!blockReason.isEmpty()) {
-                        throw new AiException("Prompt was blocked by Gemini: " + blockReason);
-                    }
-                }
-                throw new AiException("No candidates in Gemini response");
+            JsonNode choices = root.path("choices");
+            if (choices.isMissingNode() || !choices.isArray() || choices.isEmpty()) {
+                throw new AiException("No choices in Groq response");
             }
 
-            JsonNode content = candidates.get(0).path("content");
-            if (content.isMissingNode()) {
-                throw new AiException("No content in Gemini response");
+            JsonNode message = choices.get(0).path("message");
+            if (message.isMissingNode()) {
+                throw new AiException("No message in Groq response");
             }
 
-            JsonNode parts = content.path("parts");
-            if (parts.isMissingNode() || !parts.isArray() || parts.isEmpty()) {
-                throw new AiException("No parts in Gemini response");
+            String content = message.path("content").asText("");
+            if (content.isEmpty()) {
+                throw new AiException("Empty content in Groq response");
             }
 
-            String text = parts.get(0).path("text").asText("");
-            if (text.isEmpty()) {
-                throw new AiException("Empty text in Gemini response");
-            }
+            String cleanedContent = cleanGroqResponse(content);
+            log.info("CLEANED RESPONSE length: {}", cleanedContent.length());
 
-            // Log token usage for cost monitoring (only counts, never content).
-            JsonNode usage = root.path("usageMetadata");
+            // Log usage for cost monitoring
+            JsonNode usage = root.path("usage");
             if (!usage.isMissingNode() && !usage.isNull()) {
-                int promptTokens = usage.path("promptTokenCount").asInt(0);
-                int candidateTokens = usage.path("candidatesTokenCount").asInt(0);
-                int totalTokens = usage.path("totalTokenCount").asInt(0);
-                log.info("Gemini token usage - prompt={}, candidate={}, total={} ({}ms)",
-                        promptTokens, candidateTokens, totalTokens, processingTime);
+                int promptTokens = usage.path("prompt_tokens").asInt(0);
+                int completionTokens = usage.path("completion_tokens").asInt(0);
+                int totalTokens = usage.path("total_tokens").asInt(0);
+                log.info("Groq token usage - prompt={}, completion={}, total={} ({}ms)",
+                        promptTokens, completionTokens, totalTokens, processingTime);
             } else {
-                log.info("Gemini response received in {}ms", processingTime);
+                log.info("Groq response received in {}ms", processingTime);
             }
-            return text;
+
+            return cleanedContent;
 
         } catch (AiException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Error parsing Gemini response: {}", e.getMessage());
-            throw new AiException("Failed to parse Gemini response: " + e.getMessage(), e);
+            log.error("Error parsing Groq response: {}", e.getMessage());
+            throw new AiException("Failed to parse Groq response: " + e.getMessage(), e);
         }
+    }
+
+    private String cleanGroqResponse(String content) {
+        String cleaned = content.trim();
+        
+        // Remove markdown code blocks if present
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7);
+        } else if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3);
+        }
+        
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
+        
+        cleaned = cleaned.trim();
+        
+        return cleaned;
     }
 
     private boolean isRetryable(Throwable throwable) {
         if (throwable instanceof WebClientResponseException e) {
             int status = e.getStatusCode().value();
-            // 429 = quota/rate limit - DO NOT retry when quota exhausted
-            // Only retry on 500/503 (server errors) which are transient
-            return status == 500 || status == 503;
+            // Retry on 429 (rate limit), 500, 502, 503 (server errors)
+            return status == 429 || status == 500 || status == 502 || status == 503;
         }
         if (throwable instanceof WebClientRequestException) {
             return isTimeoutException((WebClientRequestException) throwable);
@@ -456,6 +523,8 @@ public class GeminiAiServiceImpl implements AiService {
 
         try {
             JsonNode errorBody = objectMapper.readTree(e.getResponseBodyAsString());
+            
+            // Groq error format
             JsonNode errorNode = errorBody.path("error");
             if (!errorNode.isMissingNode()) {
                 errorType = errorNode.path("type").asText(errorType);

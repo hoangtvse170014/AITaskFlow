@@ -2,7 +2,7 @@ package com.taskflow.ai.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.taskflow.ai.config.GeminiConfig;
+import com.taskflow.ai.config.GroqConfig;
 import com.taskflow.ai.dto.ProjectAnalysisResponse;
 import com.taskflow.ai.exception.AiException;
 import com.taskflow.ai.exception.AiTimeoutException;
@@ -36,7 +36,7 @@ public class AiProjectAnalyzerService {
     private static final int MAX_RETRIES = 1;
 
     private final AiService aiService;
-    private final GeminiConfig geminiConfig;
+    private final GroqConfig groqConfig;
     private final ProjectAnalysisPromptBuilder promptBuilder;
     private final ObjectMapper objectMapper;
     private final ProjectRepository projectRepository;
@@ -61,7 +61,7 @@ public class AiProjectAnalyzerService {
         UUID workspaceId = project.getWorkspace().getId();
 
         // Load all data INSIDE the read-only transaction, then release the DB
-        // connection before calling Gemini (which can block up to timeoutSeconds).
+        // connection before calling Groq (which can block up to timeoutSeconds).
         AnalysisContext context = loadAnalysisContext(projectId, workspaceId);
 
         String prompt = promptBuilder.build(
@@ -72,7 +72,7 @@ public class AiProjectAnalyzerService {
                 context.activities());
         log.debug("Generated prompt for project analysis");
 
-        String aiResponse = callGeminiWithRetry(prompt, startTime);
+        String aiResponse = callGroqWithRetry(prompt, startTime);
 
         return parseAndBuildResponse(aiResponse, System.currentTimeMillis() - startTime);
     }
@@ -93,7 +93,7 @@ public class AiProjectAnalyzerService {
                 loadProjectActivities(workspaceId));
     }
 
-    private String callGeminiWithRetry(String prompt, long startTime) {
+    private String callGroqWithRetry(String prompt, long startTime) {
         int attempts = 0;
         String lastError = null;
 
@@ -102,34 +102,34 @@ public class AiProjectAnalyzerService {
             try {
                 String response = aiService.generate(SYSTEM_PROMPT + "\n\n" + prompt);
                 long processingTime = System.currentTimeMillis() - startTime;
-                log.info("Gemini response received in {}ms (attempt {})", processingTime, attempts);
+                log.info("Groq response received in {}ms (attempt {})", processingTime, attempts);
                 return response;
             } catch (AiTimeoutException e) {
                 lastError = "Timeout: " + e.getMessage();
-                log.warn("Gemini request timed out (attempt {}/{}): {}", attempts, MAX_RETRIES + 1, e.getMessage());
+                log.warn("Groq request timed out (attempt {}/{}): {}", attempts, MAX_RETRIES + 1, e.getMessage());
                 if (attempts > MAX_RETRIES) {
                     throw e;
                 }
             } catch (AiException e) {
                 lastError = "AI Error: " + e.getMessage();
-                log.error("Gemini API error (attempt {}/{}): {}", attempts, MAX_RETRIES + 1, e.getMessage());
+                log.error("Groq API error (attempt {}/{}): {}", attempts, MAX_RETRIES + 1, e.getMessage());
                 if (attempts > MAX_RETRIES) {
                     throw e;
                 }
             } catch (Exception e) {
                 lastError = "Unexpected: " + e.getMessage();
-                log.error("Unexpected error calling Gemini (attempt {}/{}): {}", attempts, MAX_RETRIES + 1, e.getMessage());
+                log.error("Unexpected error calling Groq (attempt {}/{}): {}", attempts, MAX_RETRIES + 1, e.getMessage());
                 if (attempts > MAX_RETRIES) {
                     throw new AiException("Failed to analyze project: " + e.getMessage(), e);
                 }
             }
 
             if (attempts <= MAX_RETRIES) {
-                log.info("Retrying Gemini request (attempt {}/{})", attempts + 1, MAX_RETRIES + 1);
+                log.info("Retrying Groq request (attempt {}/{})", attempts + 1, MAX_RETRIES + 1);
             }
         }
 
-        throw new AiException("Failed to get response from Gemini after " + (MAX_RETRIES + 1) + " attempts. Last error: " + lastError);
+        throw new AiException("Failed to get response from Groq after " + (MAX_RETRIES + 1) + " attempts. Last error: " + lastError);
     }
 
     private List<Task> loadProjectTasks(UUID projectId) {
@@ -174,7 +174,7 @@ public class AiProjectAnalyzerService {
             log.debug("================ RAW RESPONSE ================\n{}\n============================================", aiResponse);
         }
 
-        String cleaned = cleanGeminiResponse(aiResponse);
+        String cleaned = cleanGroqResponse(aiResponse);
 
         if (log.isDebugEnabled()) {
             log.debug("================ CLEANED RESPONSE ================\n{}\n=================================================", cleaned);
@@ -243,7 +243,7 @@ public class AiProjectAnalyzerService {
         }
     }
 
-    public String cleanGeminiResponse(String text) {
+    public String cleanGroqResponse(String text) {
         if (text == null || text.isBlank()) {
             return null;
         }

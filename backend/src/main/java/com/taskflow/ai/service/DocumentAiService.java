@@ -2,7 +2,7 @@ package com.taskflow.ai.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.taskflow.ai.config.GeminiConfig;
+import com.taskflow.ai.config.GroqConfig;
 import com.taskflow.ai.dto.DocumentAiResponse;
 import com.taskflow.ai.exception.AiApiException;
 import com.taskflow.ai.exception.AiException;
@@ -39,7 +39,7 @@ public class DocumentAiService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private final AiService aiService;
-    private final GeminiConfig geminiConfig;
+    private final GroqConfig groqConfig;
     private final PageRepository pageRepository;
     private final BlockRepository blockRepository;
     private final ObjectMapper objectMapper;
@@ -62,7 +62,7 @@ public class DocumentAiService {
                 """
         );
 
-        String aiResponse = callGemini(prompt);
+        String aiResponse = callGroq(prompt);
         long processingTime = System.currentTimeMillis() - startTime;
 
         return parseDocumentResponse(aiResponse, processingTime, DocumentMode.SUMMARIZE);
@@ -86,7 +86,7 @@ public class DocumentAiService {
                 """
         );
 
-        String aiResponse = callGemini(prompt);
+        String aiResponse = callGroq(prompt);
         long processingTime = System.currentTimeMillis() - startTime;
 
         return parseDocumentResponse(aiResponse, processingTime, DocumentMode.REWRITE);
@@ -110,7 +110,7 @@ public class DocumentAiService {
                 """
         );
 
-        String aiResponse = callGemini(prompt);
+        String aiResponse = callGroq(prompt);
         long processingTime = System.currentTimeMillis() - startTime;
 
         return parseDocumentResponse(aiResponse, processingTime, DocumentMode.ACTIONS);
@@ -134,7 +134,7 @@ public class DocumentAiService {
                 """
         );
 
-        String aiResponse = callGemini(prompt);
+        String aiResponse = callGroq(prompt);
         long processingTime = System.currentTimeMillis() - startTime;
 
         return parseDocumentResponse(aiResponse, processingTime, DocumentMode.MEETING);
@@ -158,7 +158,7 @@ public class DocumentAiService {
                 """
         );
 
-        String aiResponse = callGemini(prompt);
+        String aiResponse = callGroq(prompt);
         long processingTime = System.currentTimeMillis() - startTime;
 
         return parseDocumentResponse(aiResponse, processingTime, DocumentMode.REQUIREMENTS);
@@ -184,7 +184,7 @@ public class DocumentAiService {
 
     /**
      * Transactional loader kept separate from the public AI entry points so that
-     * the blocking Gemini call (up to 120s + retries) does NOT hold a DB connection.
+     * the blocking Groq call (up to 120s + retries) does NOT hold a DB connection.
      */
     @Transactional(readOnly = true)
     protected PageContext loadContextTx(UUID pageId) {
@@ -234,18 +234,18 @@ public class DocumentAiService {
         return prompt.toString();
     }
 
-    private String callGemini(String prompt) {
-        if (!geminiConfig.isValid()) {
-            throw new AiException("Gemini API key is not configured or invalid");
+    private String callGroq(String prompt) {
+        if (!groqConfig.isValid()) {
+            throw new AiException("Groq API key is not configured or invalid");
         }
 
         try {
             return aiService.generate(SYSTEM_PROMPT + "\n\n" + prompt);
         } catch (AiTimeoutException e) {
-            log.error("Gemini request timed out during document AI", e);
+            log.error("Groq request timed out during document AI", e);
             throw e;
         } catch (AiException e) {
-            log.error("Gemini API error during document AI: {}", e.getMessage());
+            log.error("Groq API error during document AI: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error during document AI", e);

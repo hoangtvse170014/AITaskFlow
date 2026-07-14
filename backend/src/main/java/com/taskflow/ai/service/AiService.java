@@ -4,6 +4,8 @@ public interface AiService {
 
     String generate(String prompt);
 
+    String generateWithSystemPrompt(String systemPrompt, String userPrompt);
+
     // Future implementations
     // String analyzeProject(String projectData);
     // String summarizeDocument(String documentContent);

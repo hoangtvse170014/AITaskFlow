@@ -2,7 +2,9 @@ package com.taskflow.ai.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.taskflow.ai.config.GeminiConfig;
+import com.taskflow.ai.config.GroqConfig;
+import com.taskflow.ai.dto.BatchTaskAssignmentRequest;
+import com.taskflow.ai.dto.BatchTaskAssignmentResponse;
 import com.taskflow.ai.dto.TaskAssignmentRequest;
 import com.taskflow.ai.dto.TaskAssignmentResponse;
 import com.taskflow.ai.exception.AiException;
@@ -15,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -41,8 +45,10 @@ public class AiTaskAssignmentService {
             """;
 
     private final AiService aiService;
-    private final GeminiConfig geminiConfig;
+    private final GroqConfig groqConfig;
     private final TaskAssignmentPromptBuilder promptBuilder;
+    private final BatchTaskAssignmentPromptBuilder batchPromptBuilder;
+    private final SkillResolver skillResolver;
     private final ObjectMapper objectMapper;
     private final ProjectRepository projectRepository;
     private final WorkspaceMemberRepository memberRepository;
@@ -57,7 +63,7 @@ public class AiTaskAssignmentService {
         log.info("Starting AI task assignment recommendation for task: {}", request.getTitle());
 
         // Phase 1: load all data inside the transaction, then close it before
-        // calling Gemini so we don't hold a DB connection during the blocking HTTP call.
+        // calling Groq so we don't hold a DB connection during the blocking HTTP call.
         AssignmentContext ctx = loadContext(request);
 
         if (ctx.rankedMembers().isEmpty()) {
@@ -67,10 +73,215 @@ public class AiTaskAssignmentService {
         String prompt = promptBuilder.build(ctx.taskData(), ctx.memberDataList(), ctx.project());
         log.debug("Generated prompt for task assignment");
 
-        String aiResponse = callGemini(prompt);
+        String aiResponse = callGroq(prompt);
         long processingTime = System.currentTimeMillis() - startTime;
 
         return parseAndBuildResponse(aiResponse, ctx.memberDataList(), processingTime);
+    }
+
+    @Transactional(readOnly = true)
+    public BatchTaskAssignmentResponse batchRecommend(BatchTaskAssignmentRequest request) {
+        return batchRecommendInternal(request, false);
+    }
+
+    /**
+     * Variant used by preview flows where the project does not yet exist in the database.
+     * Pass {@code previewMode = true} to skip project lookup and use a synthetic project name
+     * in the prompt.
+     */
+    @Transactional(readOnly = true)
+    public BatchTaskAssignmentResponse batchRecommendPreview(BatchTaskAssignmentRequest request, String fallbackProjectName) {
+        return batchRecommendInternal(request, true, fallbackProjectName);
+    }
+
+    private BatchTaskAssignmentResponse batchRecommendInternal(BatchTaskAssignmentRequest request, boolean previewMode) {
+        return batchRecommendInternal(request, previewMode, null);
+    }
+
+    private BatchTaskAssignmentResponse batchRecommendInternal(
+            BatchTaskAssignmentRequest request,
+            boolean previewMode,
+            String fallbackProjectName) {
+
+        long startTime = System.currentTimeMillis();
+
+        log.info("Starting BATCH AI task assignment for project={}, tasks={}, previewMode={}",
+                request.getProjectId(), request.getTasks().size(), previewMode);
+
+        Project project;
+        if (previewMode) {
+            project = Project.builder()
+                    .id(request.getProjectId())
+                    .name(fallbackProjectName != null ? fallbackProjectName : "Preview Project")
+                    .description("Preview project (not yet persisted)")
+                    .build();
+        } else {
+            project = projectRepository.findById(request.getProjectId())
+                    .orElseThrow(() -> new IllegalArgumentException("Project not found: " + request.getProjectId()));
+        }
+
+        List<WorkspaceMember> members = loadWorkspaceMembers(request.getWorkspaceId());
+        List<MemberWorkload> workloads = loadWorkloads(request.getWorkspaceId());
+        List<WorkspaceMember> rankedMembers = buildMemberRanking(members, workloads);
+
+        List<TaskAssignmentPromptBuilder.MemberData> memberDataList = rankedMembers.stream()
+                .map(member -> buildMemberData(member, workloads))
+                .collect(Collectors.toList());
+
+        if (memberDataList.isEmpty()) {
+            return BatchTaskAssignmentResponse.error("No members found in workspace");
+        }
+
+        String prompt = batchPromptBuilder.build(project, request.getTasks(), memberDataList);
+        log.debug("Generated BATCH assignment prompt ({} tasks, {} members)",
+                request.getTasks().size(), memberDataList.size());
+
+        String aiResponse = callGroq(prompt);
+        long processingTime = System.currentTimeMillis() - startTime;
+
+        return parseBatchResponse(aiResponse, project, memberDataList, processingTime);
+    }
+
+    private BatchTaskAssignmentResponse parseBatchResponse(
+            String aiResponse,
+            Project project,
+            List<TaskAssignmentPromptBuilder.MemberData> memberDataList,
+            long processingTime) {
+
+        try {
+            String json = extractJson(aiResponse);
+            if (json == null || json.isBlank()) {
+                return buildFallbackBatchResponse(project, request -> request, memberDataList,
+                        "Empty AI response", processingTime);
+            }
+
+            JsonNode root = objectMapper.readTree(json);
+
+            List<BatchTaskAssignmentResponse.TaskAssignment> assignments = parseAssignments(
+                    root.path("assignments"), memberDataList);
+
+            List<BatchTaskAssignmentResponse.WorkloadSummary> summary = parseWorkloadSummary(
+                    root.path("workloadSummary"), memberDataList);
+
+            Double overall = root.path("overallConfidence").asDouble(0.0);
+            List<String> warnings = parseStringList(root.path("warnings"));
+            String reason = root.path("reason").asText("Batch assignment completed");
+
+            return BatchTaskAssignmentResponse.builder()
+                    .projectName(project.getName())
+                    .assignments(assignments)
+                    .workloadSummary(summary)
+                    .overallConfidence(overall)
+                    .warnings(warnings)
+                    .reason(reason)
+                    .processingTimeMs(processingTime)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to parse BATCH AI response: {}", e.getMessage());
+            return buildFallbackBatchResponse(project, request -> request, memberDataList,
+                    "Failed to parse AI response: " + e.getMessage(), processingTime);
+        }
+    }
+
+    private List<BatchTaskAssignmentResponse.TaskAssignment> parseAssignments(
+            JsonNode assignmentsNode,
+            List<TaskAssignmentPromptBuilder.MemberData> memberDataList) {
+
+        List<BatchTaskAssignmentResponse.TaskAssignment> out = new ArrayList<>();
+        if (!assignmentsNode.isArray()) return out;
+
+        Map<String, TaskAssignmentPromptBuilder.MemberData> memberById = memberDataList.stream()
+                .collect(Collectors.toMap(m -> m.getId(), m -> m, (a, b) -> a));
+
+        for (JsonNode item : assignmentsNode) {
+            String memberId = item.path("assignedMemberId").asText(null);
+            TaskAssignmentPromptBuilder.MemberData matched = null;
+            if (memberId != null) {
+                matched = memberById.get(memberId);
+            }
+
+            BatchTaskAssignmentResponse.TaskAssignment a = BatchTaskAssignmentResponse.TaskAssignment.builder()
+                    .taskRef(item.path("taskRef").asText(null))
+                    .title(item.path("title").asText(""))
+                    .assignedMemberId(matched != null ? matched.getId() : (memberId != null ? memberId : null))
+                    .assignedMemberName(matched != null ? matched.getName() : item.path("assignedMemberName").asText(null))
+                    .roleMatched(item.path("roleMatched").asText(null))
+                    .confidence(item.path("confidence").asDouble(0.0))
+                    .reason(item.path("reason").asText(""))
+                    .unassigned(memberId == null || memberId.isBlank() || "null".equalsIgnoreCase(memberId))
+                    .build();
+
+            out.add(a);
+        }
+        return out;
+    }
+
+    private List<BatchTaskAssignmentResponse.WorkloadSummary> parseWorkloadSummary(
+            JsonNode node,
+            List<TaskAssignmentPromptBuilder.MemberData> memberDataList) {
+
+        List<BatchTaskAssignmentResponse.WorkloadSummary> out = new ArrayList<>();
+        if (!node.isArray()) return out;
+
+        Map<String, TaskAssignmentPromptBuilder.MemberData> memberById = memberDataList.stream()
+                .collect(Collectors.toMap(m -> m.getId(), m -> m, (a, b) -> a));
+
+        for (JsonNode item : node) {
+            String id = item.path("memberId").asText(null);
+            TaskAssignmentPromptBuilder.MemberData m = id != null ? memberById.get(id) : null;
+            out.add(BatchTaskAssignmentResponse.WorkloadSummary.builder()
+                    .memberId(id)
+                    .memberName(item.path("memberName").asText(m != null ? m.getName() : ""))
+                    .assignedTaskCount(item.path("assignedTaskCount").asInt(0))
+                    .currentWorkloadPercent(m != null ? m.getWorkloadPercentage() : 0.0)
+                    .estimatedNewWorkloadPercent(item.path("estimatedNewWorkloadPercent").asDouble(0.0))
+                    .build());
+        }
+        return out;
+    }
+
+    private BatchTaskAssignmentResponse buildFallbackBatchResponse(
+            Project project,
+            java.util.function.Function<Object, Object> ignored,
+            List<TaskAssignmentPromptBuilder.MemberData> memberDataList,
+            String errorMessage,
+            long processingTime) {
+
+        log.warn("Falling back to deterministic batch assignment: {}", errorMessage);
+
+        // Deterministic fallback: route each task to the least-loaded qualified member.
+        List<BatchTaskAssignmentResponse.TaskAssignment> fallback = new ArrayList<>();
+        Map<String, Integer> assignedCount = new HashMap<>();
+        Map<String, Double> load = new HashMap<>();
+        for (TaskAssignmentPromptBuilder.MemberData m : memberDataList) {
+            load.put(m.getId(), m.getWorkloadPercentage());
+            assignedCount.put(m.getId(), 0);
+        }
+
+        // (We don't have the original task inputs here in the fallback path,
+        // so we just emit a placeholder explaining the fallback.)
+        BatchTaskAssignmentResponse.TaskAssignment placeholder = BatchTaskAssignmentResponse.TaskAssignment.builder()
+                .taskRef("__fallback__")
+                .title("AI analysis failed; please retry")
+                .assignedMemberId(null)
+                .assignedMemberName(null)
+                .roleMatched(null)
+                .confidence(0.0)
+                .reason("AI analysis unavailable: " + errorMessage)
+                .unassigned(true)
+                .build();
+        fallback.add(placeholder);
+
+        return BatchTaskAssignmentResponse.builder()
+                .projectName(project.getName())
+                .assignments(fallback)
+                .workloadSummary(List.of())
+                .overallConfidence(0.0)
+                .warnings(List.of("AI analysis failed - manual assignment required", errorMessage))
+                .reason("Fallback: " + errorMessage)
+                .processingTimeMs(processingTime)
+                .build();
     }
 
     private record AssignmentContext(
@@ -186,15 +397,15 @@ public class AiTaskAssignmentService {
         );
     }
 
-    private String callGemini(String prompt) {
-        if (!geminiConfig.isValid()) {
-            throw new AiException("Gemini API key is not configured or invalid");
+    private String callGroq(String prompt) {
+        if (!groqConfig.isValid()) {
+            throw new AiException("Groq API key is not configured or invalid");
         }
 
         try {
             return aiService.generate(SYSTEM_PROMPT + "\n\n" + prompt);
         } catch (Exception e) {
-            log.error("Gemini API error: {}", e.getMessage());
+            log.error("Groq API error: {}", e.getMessage());
             throw new AiException("Failed to get assignment recommendation: " + e.getMessage(), e);
         }
     }

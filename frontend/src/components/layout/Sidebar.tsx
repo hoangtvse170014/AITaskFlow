@@ -19,6 +19,7 @@ import {
   Star,
   Trash2,
   Pencil,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -252,6 +253,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const mainNavItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", show: true },
     { href: "/projects", icon: FolderKanban, label: "Projects", show: canViewProjects() },
+    { href: "/documentation", icon: FileText, label: "AI Docs", show: true },
+    { href: "/demo", icon: Wand2, label: "Demo Mode", show: true },
     { href: "/members", icon: Users, label: "Members", show: canViewMembers() },
     { href: "/settings", icon: Settings, label: "Settings", show: canManageWorkspace() },
   ].filter(item => item.show);

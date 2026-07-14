@@ -1,12 +1,33 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { SmartDashboard } from "@/components/dashboard/SmartDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWorkspaceStore } from "@/store/workspaceStore";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { currentWorkspace } = useWorkspaceStore();
+
+  React.useEffect(() => {
+    if (currentWorkspace) {
+      router.replace(`/dashboard/${currentWorkspace.id}`);
+    }
+  }, [currentWorkspace, router]);
+
+  if (!currentWorkspace) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-muted-foreground">Loading workspace...</div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <Header

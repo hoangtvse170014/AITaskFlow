@@ -27,4 +27,17 @@ public interface BlockRepository extends JpaRepository<Block, UUID> {
     void decrementOrderIndexAfter(@Param("pageId") UUID pageId, @Param("fromIndex") int fromIndex);
 
     void deleteAllByPageId(UUID pageId);
+
+    /**
+     * Returns recent text-like blocks across pages in the given workspace.
+     * Used by the Workspace Assistant to make page content searchable so the
+     * AI can cite documents when answering.
+     */
+    @Query("SELECT b FROM Block b " +
+           "JOIN FETCH b.page p " +
+           "WHERE p.workspace.id = :workspaceId " +
+           "AND b.content IS NOT NULL " +
+           "AND LOWER(b.type) IN ('paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_list_item', 'numbered_list_item', 'toggle', 'quote', 'callout', 'text') " +
+           "ORDER BY b.updatedAt DESC")
+    List<Block> findRecentTextBlocksByWorkspaceId(@Param("workspaceId") UUID workspaceId);
 }
