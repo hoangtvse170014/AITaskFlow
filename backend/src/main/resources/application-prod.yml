@@ -5,17 +5,22 @@ spring:
 
   datasource:
     # CRITICAL: DB_URL must be provided via environment variable in production
+    # Neon PostgreSQL connection string format:
+    # postgresql://user:password@host.neon.tech/taskflow?sslmode=require
     url: ${DB_URL}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
-      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
       connection-timeout: ${DB_POOL_TIMEOUT_MS:30000}
       idle-timeout: 600000
       max-lifetime: 1800000
       pool-name: TaskFlowHikariPool
+      data-source-properties:
+        ssl: true
+        sslmode: require
 
   jpa:
     hibernate:
