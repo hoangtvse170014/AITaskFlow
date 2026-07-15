@@ -157,7 +157,7 @@ Backend reads from `application.yml` and supports env overrides:
 - `DB_USERNAME`
 - `DB_PASSWORD`
 - `JWT_SECRET`
-- `GEMINI_API_KEY`
+- `GROQ_API_KEY`
 
 Do NOT commit secrets. Use local env vars or Docker env files.
 

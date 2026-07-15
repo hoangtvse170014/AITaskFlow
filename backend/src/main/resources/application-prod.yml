@@ -4,7 +4,8 @@ spring:
       on-profile: prod
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/taskflow}
+    # CRITICAL: DB_URL must be provided via environment variable in production
+    url: ${DB_URL}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -32,7 +33,8 @@ server:
 
 app:
   cors:
-    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
+    # CRITICAL: ALLOWED_ORIGINS must be explicitly set in production
+    allowed-origins: ${ALLOWED_ORIGINS}
 
 logging:
   level:
