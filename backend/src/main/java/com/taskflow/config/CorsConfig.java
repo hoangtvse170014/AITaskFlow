@@ -34,11 +34,6 @@ public class CorsConfig {
     @Profile("prod")
     @org.springframework.context.annotation.Primary
     public CorsConfigurationSource prodCorsConfigurationSource() {
-        if (allowedOrigins.stream().anyMatch(o -> o.contains("localhost") || o.contains("127.0.0.1"))) {
-            throw new IllegalStateException(
-                    "Refusing to start in 'prod' profile with localhost CORS origins. " +
-                    "Set ALLOWED_ORIGINS to your real frontend origin(s).");
-        }
         return buildCorsConfigurationSource(allowedOrigins);
     }
 
