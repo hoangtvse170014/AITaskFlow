@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: taskflow-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    rootDir: ./backend
+    region: singapore
+    plan: starter
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 8080
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_DDL_AUTO
+        value: validate
+      - key: JWT_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://frontend-tau-rouge-rire1tkgxp.vercel.app
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: demo
