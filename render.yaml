@@ -12,19 +12,21 @@ services:
         value: prod
       - key: PORT
         value: 8080
+      - key: SERVER_PORT
+        value: 8080
       - key: DB_URL
-        sync: false
+        value: postgresql://hoangtvse170014:EpDq-Ajv-7URo-5fJ9j6k7U7qE7Cq0C1@ep-rough-cake-a59nsuq.us-east-2.aws.neon.tech/taskflow?sslmode=require
       - key: DB_USERNAME
-        sync: false
+        value: hoangtvse170014
       - key: DB_PASSWORD
-        sync: false
+        value: EpDq-Ajv-7URo-5fJ9j6k7U7qE7Cq0C1
       - key: DB_DDL_AUTO
         value: validate
       - key: JWT_SECRET
-        sync: false
+        value: TaskFlowSecretKey2026VeryLongSecretKeyForJWTSigningMinimum32Bytes!
       - key: ALLOWED_ORIGINS
-        value: https://frontend-tau-rouge-rire1tkgxp.vercel.app
+        value: https://taskflow-frontend-w6lb.onrender.com
       - key: GROQ_API_KEY
-        sync: false
+        value: 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
       - key: AI_PROVIDER
         value: demo
