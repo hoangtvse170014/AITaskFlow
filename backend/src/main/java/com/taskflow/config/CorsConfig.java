@@ -32,6 +32,7 @@ public class CorsConfig {
 
     @Bean
     @Profile("prod")
+    @org.springframework.context.annotation.Primary
     public CorsConfigurationSource prodCorsConfigurationSource() {
         if (allowedOrigins.stream().anyMatch(o -> o.contains("localhost") || o.contains("127.0.0.1"))) {
             throw new IllegalStateException(
