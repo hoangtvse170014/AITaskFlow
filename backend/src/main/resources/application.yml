@@ -3,7 +3,7 @@ spring:
     name: taskflow-backend
 
   datasource:
-    url: ${DATABASE_URL:${DB_URL:jdbc:postgresql://localhost:5432/taskflow}}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/taskflow}
     username: ${DB_USERNAME:${POSTGRES_USER:postgres}}
     password: ${DB_PASSWORD:${POSTGRES_PASSWORD:postgres}}
     driver-class-name: org.postgresql.Driver
@@ -38,8 +38,6 @@ spring:
             user-name-attribute: sub
 
 jwt:
-  # SECURITY: Must be overridden via env var in production (>= 32 bytes for HS256).
-  # Falls back to a development-only placeholder; startup fails fast if too short.
   secret: ${JWT_SECRET:TaskFlowSecretKey2026VeryLongSecretKeyForJWTSigningMinimum32Bytes!}
   access-token-expiration: ${ACCESS_TOKEN_EXPIRATION:900000}
   refresh-token-expiration: ${REFRESH_TOKEN_EXPIRATION:604800000}
@@ -51,12 +49,11 @@ app:
 logging:
   level:
     com.taskflow: INFO
-    com.taskflow.ai: DEBUG
+    com.taskflow.ai: INFO
     org.springframework.security: INFO
 
 groq:
-  # SECURITY: API key MUST be provided via GROQ_API_KEY env var (see .env.example).
-  api-key: ${GROQ_API_KEY}
+  api-key: ${GROQ_API_KEY:demo}
   model: ${GROQ_MODEL:llama-3.3-70b-versatile}
   max-tokens: ${GROQ_MAX_TOKENS:8192}
   temperature: ${GROQ_TEMPERATURE:0.7}
@@ -64,7 +61,7 @@ groq:
   max-retries: ${GROQ_RETRIES:3}
 
 server:
-  port: ${SERVER_PORT:8081}
+  port: ${PORT:${SERVER_PORT:8080}}
 
 management:
   endpoints:

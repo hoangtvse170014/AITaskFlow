@@ -1,5 +1,4 @@
 [railway]
-  theorem = "java"
   language = "java17"
 
 [build]

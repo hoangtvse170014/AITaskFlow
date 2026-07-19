@@ -15,8 +15,11 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 
 COPY --from=build /app/target/*.jar app.jar
+COPY entrypoint.sh /app/entrypoint.sh
 
+RUN chmod +x /app/entrypoint.sh
 RUN chown -R appuser:appgroup /app
+
 USER appuser
 
 ENV PORT=8080
@@ -25,4 +28,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/actuator/health || exit 1
 
-ENTRYPOINT ["sh", "-c", "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar app.jar --server.port=${PORT:-8080}"]
+ENTRYPOINT ["/app/entrypoint.sh"]
