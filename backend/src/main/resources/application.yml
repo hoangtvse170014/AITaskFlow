@@ -1,0 +1,76 @@
+spring:
+  application:
+    name: taskflow-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/taskflow}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DB_DDL_AUTO:validate}
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:placeholder}
+            client-secret: ${GOOGLE_CLIENT_SECRET:placeholder}
+            scope:
+              - openid
+              - profile
+              - email
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+
+jwt:
+  # SECURITY: Must be overridden via env var in production (>= 32 bytes for HS256).
+  # Falls back to a development-only placeholder; startup fails fast if too short.
+  secret: ${JWT_SECRET:TaskFlowSecretKey2026VeryLongSecretKeyForJWTSigningMinimum32Bytes!}
+  access-token-expiration: ${ACCESS_TOKEN_EXPIRATION:900000}
+  refresh-token-expiration: ${REFRESH_TOKEN_EXPIRATION:604800000}
+
+app:
+  auth:
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+
+logging:
+  level:
+    com.taskflow: INFO
+    com.taskflow.ai: DEBUG
+    org.springframework.security: INFO
+
+groq:
+  # SECURITY: API key MUST be provided via GROQ_API_KEY env var (see .env.example).
+  api-key: ${GROQ_API_KEY}
+  model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+  max-tokens: ${GROQ_MAX_TOKENS:8192}
+  temperature: ${GROQ_TEMPERATURE:0.7}
+  timeout-seconds: ${GROQ_TIMEOUT:120}
+  max-retries: ${GROQ_RETRIES:3}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

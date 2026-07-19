@@ -1,0 +1,49 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    # CRITICAL: DB_URL must be provided via environment variable in production
+    # Neon PostgreSQL connection string format:
+    # postgresql://user:password@host.neon.tech/taskflow?sslmode=require
+    url: ${DB_URL}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_POOL_TIMEOUT_MS:30000}
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: TaskFlowHikariPool
+      data-source-properties:
+        ssl: true
+        sslmode: require
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  cors:
+    # CRITICAL: ALLOWED_ORIGINS must be explicitly set in production
+    allowed-origins: ${ALLOWED_ORIGINS}
+
+logging:
+  level:
+    com.taskflow: INFO
+    com.taskflow.ai: INFO
+    org.springframework.security: WARN
+    org.hibernate: WARN

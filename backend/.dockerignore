@@ -1,0 +1,11 @@
+.git
+.gitignore
+target/
+*.md
+*.log
+*.err
+.DS_Store
+.vscode
+.idea
+**/node_modules
+**/npm-debug.log

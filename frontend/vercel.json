@@ -1,0 +1,4 @@
+{
+  "buildCommand": "NEXT_PUBLIC_API_URL=https://grown-smell-roland-manuals.trycloudflare.com npm run build",
+  "installCommand": "npm install"
+}

@@ -1,0 +1,13 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "rootDirectory": "frontend",
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_API_URL",
+      "value": "https://taskflow-backend.onrender.com"
+    }
+  ]
+}

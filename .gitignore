@@ -1,0 +1,42 @@
+# Environment files - NO SECRETS
+.env
+.env.local
+.env.production
+.env.*.local
+*.vercel.env
+*vercel_env*
+
+# Build outputs
+backend/target/
+frontend/.next/
+frontend/node_modules/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.log
+*.tmp
+*.err
+
+# Scripts
+*.ps1
+*.sh
+
+# Test files
+*test*.json
+*test*.py
+preview*.json
+sse*.ps1
+
+# Secrets
+*.secret
+secrets.yml
+GroqApiKey*

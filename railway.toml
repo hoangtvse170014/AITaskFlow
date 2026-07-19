@@ -1,0 +1,10 @@
+[railway]
+  theorem = "java"
+
+[build]
+  builder = "docker"
+  dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+  healthCheckPath = "/actuator/health"
+  rootDirectory = "backend"
