@@ -1,17 +1,26 @@
 #!/bin/sh
-# Transform Railway DATABASE_URL (postgresql://) to JDBC URL (jdbc:postgresql://)
+set -e
 
+echo "=== Railway Environment Debug ==="
+echo "PORT=$PORT"
+echo "DATABASE_URL=${DATABASE_URL:0:50}..."  # First 50 chars only for security
+
+# Transform Railway DATABASE_URL (postgresql://) to JDBC URL (jdbc:postgresql://)
 if [ -n "$DATABASE_URL" ]; then
-    # Convert postgresql://user:pass@host:port/db?options to jdbc:postgresql://host:port/db
-    JDBC_URL=$(echo "$DATABASE_URL" | sed -E 's|^postgresql://||' | sed -E 's|^(.*@)?([^/]+)|jdbc:postgresql://\2|')
+    # Remove 'postgresql://' prefix and add 'jdbc:postgresql://' prefix
+    # Extract host/db from postgresql://user:pass@host:port/db?sslmode=require
+    JDBC_URL=$(echo "$DATABASE_URL" | sed 's|^postgresql://|jdbc:postgresql://|')
     export DB_URL="$JDBC_URL"
     export SPRING_DATASOURCE_URL="$JDBC_URL"
-    echo "Transformed DATABASE_URL to JDBC URL: $JDBC_URL"
+    echo "DB_URL=$DB_URL"
 fi
 
-# Use PORT from Railway, default to 8080
+# Set default port
 SERVER_PORT=${PORT:-8080}
 
+echo "=== Starting Spring Boot ==="
+echo "Server port: $SERVER_PORT"
+
 exec java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 \
-    -jar app.jar \
+    -jar /app/app.jar \
     --server.port=$SERVER_PORT
