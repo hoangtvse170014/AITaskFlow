@@ -1,0 +1,24 @@
+database:
+  plan: free
+  name: taskflow-db
+  databaseName: taskflow
+  ipAllowList: []
+
+services:
+  - type: web
+    name: taskflow-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    regions:
+      - singapore
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: taskflow-db
+          property: connectionString
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: JWT_SECRET
+        generateValue: true

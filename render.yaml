@@ -15,18 +15,18 @@ services:
       - key: SERVER_PORT
         value: 8080
       - key: DB_URL
-        value: postgresql://hoangtvse170014:EpDq-Ajv-7URo-5fJ9j6k7U7qE7Cq0C1@ep-rough-cake-a59nsuq.us-east-2.aws.neon.tech/taskflow?sslmode=require
+        sync: false
       - key: DB_USERNAME
-        value: hoangtvse170014
+        sync: false
       - key: DB_PASSWORD
-        value: EpDq-Ajv-7URo-5fJ9j6k7U7qE7Cq0C1
+        sync: false
       - key: DB_DDL_AUTO
         value: validate
       - key: JWT_SECRET
-        value: TaskFlowSecretKey2026VeryLongSecretKeyForJWTSigningMinimum32Bytes!
+        sync: false
       - key: ALLOWED_ORIGINS
         value: https://taskflow-frontend-w6lb.onrender.com
       - key: GROQ_API_KEY
-        value: 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
+        sync: false
       - key: AI_PROVIDER
         value: demo

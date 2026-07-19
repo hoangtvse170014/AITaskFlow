@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true, // Enable for production safety
   poweredByHeader: false,
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://grown-smell-roland-manuals.trycloudflare.com';
     return [
       {
         source: '/api/:path*',
