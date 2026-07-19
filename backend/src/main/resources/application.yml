@@ -2,10 +2,14 @@ spring:
   application:
     name: taskflow-backend
 
+  # CRITICAL: Railway provides DATABASE_URL in format postgresql://user:pass@host/db
+  # We use a shell script (entrypoint.sh) to transform it to jdbc:postgresql://...
+  # The transformed URL is exported as DB_URL before Spring Boot starts.
+  # If transformation fails, fallback to localhost for safe startup.
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/taskflow}
-    username: ${DB_USERNAME:${POSTGRES_USER:postgres}}
-    password: ${DB_PASSWORD:${POSTGRES_PASSWORD:postgres}}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -45,6 +49,8 @@ jwt:
 app:
   auth:
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
 
 logging:
   level:

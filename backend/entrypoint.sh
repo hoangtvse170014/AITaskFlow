@@ -1,67 +1,86 @@
 #!/bin/sh
 set -e
 
-echo "=== Railway Environment Check ==="
-echo "PORT=$PORT"
-echo "DATABASE_URL=[${DATABASE_URL:+SET}]"
+echo "=========================================="
+echo "  Railway Deployment Entry Point"
+echo "=========================================="
 
-# Railway PostgreSQL plugin provides: DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
-# Spring needs: jdbc:postgresql://host:port/db?sslmode=require
+# Railway sets PORT automatically
+echo "Railway PORT: $PORT"
 
+# Railway PostgreSQL provides DATABASE_URL in format: postgresql://user:pass@host:port/db?sslmode=require
+# Spring Boot JDBC driver needs: jdbc:postgresql://host:port/db?sslmode=require
+
+echo ""
+echo "Checking DATABASE_URL..."
 if [ -n "$DATABASE_URL" ]; then
-    # Remove 'postgresql://' prefix manually using case statement
-    case "$DATABASE_URL" in
-        postgresql://*)
-            # Extract everything after 'postgresql://'
-            REMAINING="${DATABASE_URL#postgresql://}"
-            # Extract host part (everything up to the next /)
-            HOSTPART="${REMAINING%%/*}"
-            # Extract database part (everything after first /)
-            DBPART="${REMAINING#*/}"
-            # Build JDBC URL
-            JDBC_URL="jdbc:postgresql://${HOSTPART}/${DBPART}"
-            export DB_URL="$JDBC_URL"
-            export SPRING_DATASOURCE_URL="$JDBC_URL"
-            echo "DB_URL set to: $JDBC_URL"
-            ;;
-        jdbc:postgresql://*)
-            export DB_URL="$DATABASE_URL"
-            export SPRING_DATASOURCE_URL="$DATABASE_URL"
-            echo "DB_URL already JDBC format"
-            ;;
-        *)
-            echo "Unknown DATABASE_URL format: $DATABASE_URL"
-            ;;
-    esac
+    echo "Found DATABASE_URL, transforming..."
+    # Extract host:port/database from postgresql://user:pass@host:port/db
+    # Remove 'postgresql://' and everything up to '@'
+    # Handle format: postgresql://user:pass@host:port/db?query
+    REMAINING="${DATABASE_URL#postgresql://*@}"
+    # Now REMAINING is like host:port/db?query
+    # Extract hostport (everything before /)
+    HOSTPORT="${REMAINING%%/*}"
+    # Extract dbname (everything after first /, before ?)
+    DBNAME="${REMAINING%%\?*}"
+    
+    JDBC_URL="jdbc:postgresql://${HOSTPORT}/${DBNAME}"
+    
+    export DB_URL="$JDBC_URL"
+    export SPRING_DATASOURCE_URL="$JDBC_URL"
+    
+    echo "DB_URL transformed to: $JDBC_URL"
+    
+    # Extract username/password for DB_USERNAME and DB_PASSWORD
+    # Format: postgresql://user:pass@host:port/db
+    CREDS="${DATABASE_URL#postgresql://}"
+    CREDS="${CREDS%@*}"
+    export DB_USERNAME="${CREDS%:*}"
+    export DB_PASSWORD="${CREDS#*:}"
+    
+    echo "DB_USERNAME: $DB_USERNAME"
+else
+    echo "WARNING: DATABASE_URL not found!"
 fi
 
-# Also support Railway's individual POSTGRES_* variables
+# Railway also sets individual PostgreSQL variables (Railway v2)
+echo ""
+echo "Checking POSTGRES_* variables..."
 if [ -n "$POSTGRES_HOST" ]; then
     JDBC_URL="jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-taskflow}?sslmode=require"
     export DB_URL="$JDBC_URL"
-    export SPRING_DATASOURCE_URL="$JDBC_URL"
-    echo "DB_URL built from POSTGRES_*: $JDBC_URL"
+    echo "DB_URL from POSTGRES_HOST: $JDBC_URL"
 fi
 
-# Set username and password from Railway variables
 if [ -n "$POSTGRES_USER" ]; then
     export DB_USERNAME="$POSTGRES_USER"
+    echo "DB_USERNAME: $DB_USERNAME"
 fi
+
 if [ -n "$POSTGRES_PASSWORD" ]; then
     export DB_PASSWORD="$POSTGRES_PASSWORD"
+    echo "DB_PASSWORD: [SET]"
 fi
 
-# Set Spring profile to prod for Railway
+# Set Spring Profile
 export SPRING_PROFILES_ACTIVE="prod"
+echo ""
+echo "SPRING_PROFILES_ACTIVE: $SPRING_PROFILES_ACTIVE"
 
-# Railway PORT
-SERVER_PORT=${PORT:-8080}
-export SERVER_PORT
+# Server port
+SERVER_PORT="${PORT:-8080}"
+echo "SERVER_PORT: $SERVER_PORT"
 
-echo "=== Starting Spring Boot on port $SERVER_PORT with profile=prod ==="
-echo "DB_URL=$DB_URL"
-echo "DB_USERNAME=$DB_USERNAME"
+echo ""
+echo "=========================================="
+echo "  Starting Spring Boot Application"
+echo "=========================================="
+echo "Final DB_URL: $DB_URL"
+echo "Final DB_USERNAME: $DB_USERNAME"
+echo ""
 
 exec java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 \
     -jar /app/app.jar \
-    --server.port=$SERVER_PORT
+    --server.port=$SERVER_PORT \
+    --spring.profiles.active=prod
