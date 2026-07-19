@@ -1,13 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true, // Enable for production safety
+  reactStrictMode: true,
   poweredByHeader: false,
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://grown-smell-roland-manuals.trycloudflare.com';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://taskflow-backend-production-f828.up.railway.app/api';
     return [
       {
         source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
+        destination: `${apiUrl}/:path*`,
       },
     ];
   },

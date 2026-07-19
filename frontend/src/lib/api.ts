@@ -2,7 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import type { ApiResponse } from "@/types";
 import toast from "react-hot-toast";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://grown-smell-roland-manuals.trycloudflare.com/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://taskflow-backend-production-f828.up.railway.app/api";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

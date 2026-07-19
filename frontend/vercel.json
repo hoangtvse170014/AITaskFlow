@@ -1,4 +1,4 @@
 {
-  "buildCommand": "NEXT_PUBLIC_API_URL=https://grown-smell-roland-manuals.trycloudflare.com npm run build",
+  "buildCommand": "NEXT_PUBLIC_API_URL=https://taskflow-backend-production-f828.up.railway.app/api npm run build",
   "installCommand": "npm install"
 }
