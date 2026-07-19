@@ -4,12 +4,10 @@ spring:
       on-profile: prod
 
   datasource:
-    # CRITICAL: DB_URL must be provided via environment variable in production
-    # Neon PostgreSQL connection string format:
-    # postgresql://user:password@host.neon.tech/taskflow?sslmode=require
-    url: ${DB_URL}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    # Railway provides DATABASE_URL, convert to expected format
+    url: ${DATABASE_URL:${DB_URL:jdbc:postgresql://localhost:5432/taskflow}}
+    username: ${DB_USERNAME:${POSTGRES_USER:postgres}}
+    password: ${DB_PASSWORD:${POSTGRES_PASSWORD:postgres}}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
@@ -34,12 +32,11 @@ spring:
           time_zone: UTC
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
 
 app:
   cors:
-    # CRITICAL: ALLOWED_ORIGINS must be explicitly set in production
-    allowed-origins: ${ALLOWED_ORIGINS}
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
 
 logging:
   level:

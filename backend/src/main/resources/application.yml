@@ -3,9 +3,9 @@ spring:
     name: taskflow-backend
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/taskflow}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: ${DATABASE_URL:${DB_URL:jdbc:postgresql://localhost:5432/taskflow}}
+    username: ${DB_USERNAME:${POSTGRES_USER:postgres}}
+    password: ${DB_PASSWORD:${POSTGRES_PASSWORD:postgres}}
     driver-class-name: org.postgresql.Driver
 
   jpa:
