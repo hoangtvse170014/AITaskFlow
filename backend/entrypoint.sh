@@ -51,11 +51,16 @@ if [ -n "$POSTGRES_PASSWORD" ]; then
     export DB_PASSWORD="$POSTGRES_PASSWORD"
 fi
 
+# Set Spring profile to prod for Railway
+export SPRING_PROFILES_ACTIVE="prod"
+
 # Railway PORT
 SERVER_PORT=${PORT:-8080}
 export SERVER_PORT
 
-echo "=== Starting Spring Boot on port $SERVER_PORT ==="
+echo "=== Starting Spring Boot on port $SERVER_PORT with profile=prod ==="
+echo "DB_URL=$DB_URL"
+echo "DB_USERNAME=$DB_USERNAME"
 
 exec java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 \
     -jar /app/app.jar \
