@@ -18,7 +18,9 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: ${DB_DDL_AUTO:validate}
+      # Use 'update' for Railway to auto-create tables if they don't exist
+      # Once schema is stable, change to 'validate' for safety
+      ddl-auto: ${DB_DDL_AUTO:update}
     open-in-view: false
     properties:
       hibernate:
