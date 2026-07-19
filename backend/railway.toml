@@ -1,0 +1,12 @@
+[railway]
+  theorem = "java"
+  language = "java17"
+
+[build]
+  builder = "docker"
+  dockerfilePath = "Dockerfile"
+
+[deploy]
+  healthCheckPath = "/actuator/health"
+  restartPolicyType = "ON_FAILURE"
+  restartThreshold = 3
