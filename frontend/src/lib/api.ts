@@ -2,7 +2,11 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import type { ApiResponse } from "@/types";
 import toast from "react-hot-toast";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://grown-smell-roland-manuals.trycloudflare.com/api";
+// Use relative path to leverage Next.js rewrites in production
+// In development, fallback to localhost
+const API_BASE_URL = process.env.NODE_ENV === "production" 
+  ? ""  // Use relative path (Next.js rewrites will proxy to backend)
+  : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081") + "/api";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
