@@ -37,6 +37,7 @@ public class TaskServiceImpl implements TaskService {
     private final NotificationService notificationService;
 
     @Override
+    @Transactional(readOnly = true)
     public Map<String, List<TaskResponse>> getTasksByStatus(UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
@@ -63,6 +64,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public TaskResponse getTaskById(UUID projectId, UUID taskId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
@@ -288,6 +290,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<TaskCommentResponse> getTaskComments(UUID taskId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", "id", taskId));
@@ -364,6 +367,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<TaskActivityLogResponse> getTaskActivityLogs(UUID taskId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", "id", taskId));

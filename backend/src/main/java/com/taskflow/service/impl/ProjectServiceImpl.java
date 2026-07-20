@@ -48,6 +48,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ActivityLogService activityLogService;
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProjectResponse> getAllProjects(UUID workspaceId) {
         User currentUser = getCurrentUser();
         if (!workspaceService.isWorkspaceMember(workspaceId, currentUser.getId())) {
@@ -61,6 +62,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProjectResponse getProjectById(UUID workspaceId, UUID projectId) {
         User currentUser = getCurrentUser();
         if (!workspaceService.isWorkspaceMember(workspaceId, currentUser.getId())) {
@@ -172,6 +174,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProjectMemberResponse> getProjectMembers(UUID projectId) {
         return projectMemberRepository.findByProjectId(projectId)
                 .stream()
