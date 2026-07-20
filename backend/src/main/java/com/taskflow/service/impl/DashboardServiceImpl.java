@@ -17,6 +17,7 @@ import com.taskflow.service.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -35,6 +36,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final UserRepository userRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public DashboardResponse getDashboardStats(UUID workspaceId) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", "id", workspaceId));
