@@ -59,6 +59,7 @@ export default function ProjectBoardPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.projectId as string;
+  const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore();
   const { projects, fetchProjects } = useProjectStore();
   const { tasks, isLoading, fetchTasks, updateTaskPosition, moveTask, deleteTask, currentTask, setCurrentTask } = useTaskStore();
   const { currentWorkspace } = useWorkspaceStore();
@@ -78,12 +79,19 @@ export default function ProjectBoardPage() {
   const currentProject = projects.find((p) => p.id === projectId);
   const isAdmin = currentWorkspace?.role === "OWNER" || currentWorkspace?.role === "ADMIN";
 
-  // Fetch projects if not loaded
+  // Fetch projects and workspaces if not loaded
   React.useEffect(() => {
-    if (projects.length === 0) {
-      fetchProjects();
+    // First fetch workspaces to get currentWorkspace
+    if (!currentWorkspace) {
+      fetchWorkspaces();
     }
-  }, [projects.length, fetchProjects]);
+  }, [currentWorkspace, fetchWorkspaces]);
+
+  React.useEffect(() => {
+    if (projects.length === 0 && currentWorkspace?.id) {
+      fetchProjects(currentWorkspace.id);
+    }
+  }, [projects.length, currentWorkspace, fetchProjects]);
 
   // Fetch tasks when project is available
   React.useEffect(() => {
