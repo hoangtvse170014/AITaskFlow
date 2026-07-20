@@ -1,9 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true, // Enable for production safety
+  reactStrictMode: true,
   poweredByHeader: false,
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://grown-smell-roland-manuals.trycloudflare.com';
+    // Use Railway backend for all API requests
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://taskflow-backend-production-f828.up.railway.app';
     return [
       {
         source: '/api/:path*',
