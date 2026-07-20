@@ -2,11 +2,18 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import type { ApiResponse } from "@/types";
 import toast from "react-hot-toast";
 
-// In production: use relative path (Next.js rewrites proxy /api/* to backend)
-// In development: use localhost
-const API_BASE_URL = process.env.NODE_ENV === "production" 
-  ? "" 
-  : "http://localhost:8081/api";
+// Use Railway backend URL directly in production for CORS compatibility
+// In development, use localhost
+const getApiBaseUrl = () => {
+  if (process.env.NODE_ENV === "production") {
+    // Production: use Railway backend URL directly with CORS
+    return "https://taskflow-backend-production-f828.up.railway.app/api";
+  }
+  // Development
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
