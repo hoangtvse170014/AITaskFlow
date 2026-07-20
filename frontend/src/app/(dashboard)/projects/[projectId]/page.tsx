@@ -78,50 +78,24 @@ export default function ProjectBoardPage() {
   const currentProject = projects.find((p) => p.id === projectId);
   const isAdmin = currentWorkspace?.role === "OWNER" || currentWorkspace?.role === "ADMIN";
 
-  // Filter tasks based on search and filters
-  const filteredTasks = React.useMemo(() => {
-    const result: Record<TaskStatus, Task[]> = {
-      TODO: [],
-      IN_PROGRESS: [],
-      REVIEW: [],
-      DONE: [],
-    };
+  // Fetch projects if not loaded
+  React.useEffect(() => {
+    if (projects.length === 0) {
+      fetchProjects();
+    }
+  }, [projects.length, fetchProjects]);
 
-    (Object.keys(tasks) as TaskStatus[]).forEach((status) => {
-      result[status] = tasks[status].filter((task) => {
-        // Search filter
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          const matchesSearch =
-            task.title.toLowerCase().includes(query) ||
-            (task.description && task.description.toLowerCase().includes(query)) ||
-            task.taskKey.toLowerCase().includes(query);
-          if (!matchesSearch) return false;
-        }
+  // Fetch tasks when project is available
+  React.useEffect(() => {
+    if (projectId) {
+      fetchTasks(projectId);
+    }
+  }, [projectId, fetchTasks]);
 
-        // Status filter
-        if (filters.status.length > 0 && !filters.status.includes(status)) {
-          return false;
-        }
-
-        // Priority filter
-        if (filters.priority.length > 0 && !filters.priority.includes(task.priority)) {
-          return false;
-        }
-
-        // Assignee filter
-        if (filters.assignee.length > 0) {
-          if (!task.assignee || !filters.assignee.includes(task.assignee.id)) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-    });
-
-    return result;
-  }, [tasks, searchQuery, filters]);
+  // Get all tasks as a flat array
+  const allTasks = React.useMemo(() => {
+    return Object.values(tasks).flat();
+  }, [tasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -131,17 +105,6 @@ export default function ProjectBoardPage() {
     }),
     useSensor(KeyboardSensor)
   );
-
-  // Get all tasks as a flat array for table view
-  const allTasks = React.useMemo(() => {
-    return Object.values(tasks).flat();
-  }, [tasks]);
-
-  React.useEffect(() => {
-    if (projectId) {
-      fetchTasks(projectId);
-    }
-  }, [projectId, fetchTasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -253,7 +216,7 @@ export default function ProjectBoardPage() {
 
   const handleDeleteTask = async (taskId: string) => {
     if (confirm("Are you sure you want to delete this task?")) {
-      await deleteTask(taskId, projectId);
+      await deleteTask(projectId, taskId);
     }
   };
 
@@ -366,7 +329,7 @@ export default function ProjectBoardPage() {
                   key={column.id}
                   id={column.id}
                   title={column.title}
-                  tasks={filteredTasks[column.id]}
+                  tasks={tasks[column.id]}
                   onAddTask={() => handleOpenCreate(column.id)}
                   onTaskClick={(task) => setCurrentTask(task)}
                 />
@@ -386,7 +349,7 @@ export default function ProjectBoardPage() {
           />
         ) : (
           <TaskTableView
-            tasks={Object.values(filteredTasks).flat()}
+            tasks={allTasks}
             projectId={projectId}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
