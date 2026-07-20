@@ -6,6 +6,7 @@ import com.taskflow.entity.*;
 import com.taskflow.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ public class SmartDashboardService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ActivityLogRepository activityLogRepository;
 
+    @Transactional(readOnly = true)
     public SmartDashboardResponse getSmartDashboard(UUID workspaceId, UUID userId) {
         long startTime = System.currentTimeMillis();
         SmartDashboardResponse response = new SmartDashboardResponse();
