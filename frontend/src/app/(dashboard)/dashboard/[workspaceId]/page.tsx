@@ -74,6 +74,9 @@ export default function WorkspaceDashboardPage() {
             <TabsTrigger value="documentation">AI Docs</TabsTrigger>
           </TabsList>
           <TabsContent value="smart">
+            <div data-testid="smart-dashboard-test" className="text-sm text-muted-foreground mb-4">
+              Testing SmartDashboard render...
+            </div>
             <SmartDashboard />
           </TabsContent>
           <TabsContent value="overview">

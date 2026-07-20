@@ -21,6 +21,7 @@ import { api } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/workspaceStore";
 import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { QuickActions } from "./QuickActions";
 
 interface SmartDashboardData {
   myTasks: {
@@ -246,6 +247,9 @@ export function SmartDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Actions */}
+      <QuickActions />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* My Tasks */}

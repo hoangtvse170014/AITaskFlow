@@ -55,6 +55,7 @@ public class WorkspaceAssistantService {
     private final ActivityLogRepository activityLogRepository;
     private final TaskCommentRepository commentRepository;
 
+    @Transactional(readOnly = true)
     public WorkspaceAnswerResponse answerQuestion(UUID workspaceId, String question) {
         long startTime = System.currentTimeMillis();
 
