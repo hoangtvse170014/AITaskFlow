@@ -62,7 +62,6 @@ export default function ProjectBoardPage() {
   const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore();
   const { projects, fetchProjects } = useProjectStore();
   const { tasks, isLoading, fetchTasks, updateTaskPosition, moveTask, deleteTask, currentTask, setCurrentTask } = useTaskStore();
-  const { currentWorkspace } = useWorkspaceStore();
   
   const [activeTask, setActiveTask] = React.useState<Task | null>(null);
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
