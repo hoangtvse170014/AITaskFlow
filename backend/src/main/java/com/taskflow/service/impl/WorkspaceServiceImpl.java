@@ -39,6 +39,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final ActivityLogService activityLogService;
 
     @Override
+    @Transactional(readOnly = true)
     public List<WorkspaceResponse> getAllWorkspaces() {
         User currentUser = getCurrentUser();
         return workspaceRepository.findAllByMemberUserId(currentUser.getId())
