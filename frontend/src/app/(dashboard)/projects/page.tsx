@@ -25,7 +25,7 @@ import toast from "react-hot-toast";
 
 export default function ProjectsPage() {
   const params = useParams();
-  const { currentWorkspace } = useWorkspaceStore();
+  const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore();
   const { projects, isLoading, fetchProjects, createProject } = useProjectStore();
   const { canCreateProjects } = usePermissions();
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
@@ -40,10 +40,17 @@ export default function ProjectsPage() {
   const workspaceId = currentWorkspace?.id || (params.workspaceId as string);
 
   React.useEffect(() => {
-    if (workspaceId) {
+    async function loadData() {
+      await fetchWorkspaces();
+    }
+    loadData();
+  }, [fetchWorkspaces]);
+
+  React.useEffect(() => {
+    if (workspaceId && currentWorkspace) {
       fetchProjects(workspaceId);
     }
-  }, [workspaceId, fetchProjects]);
+  }, [workspaceId, currentWorkspace, fetchProjects]);
 
   const handleCreateProject = async () => {
     if (!newProject.name || !newProject.key) {
