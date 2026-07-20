@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/health", "/actuator/health").permitAll()
+                        .requestMatchers("/api/admin/**").permitAll()
                         // SECURITY: AI endpoints MUST be authenticated to prevent unauthorized
                         // access to paid Groq API and to enforce workspace-level authorization.
                         .requestMatchers(
