@@ -25,11 +25,12 @@ import toast from "react-hot-toast";
 
 export default function ProjectsPage() {
   const params = useParams();
-  const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore();
-  const { projects, isLoading, fetchProjects, createProject } = useProjectStore();
+  const { currentWorkspace, fetchWorkspaces, isLoading: wsLoading } = useWorkspaceStore();
+  const { projects, isLoading: projLoading, fetchProjects, createProject } = useProjectStore();
   const { canCreateProjects } = usePermissions();
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
+  const [initialized, setInitialized] = React.useState(false);
   const [newProject, setNewProject] = React.useState({
     name: "",
     key: "",
@@ -39,18 +40,21 @@ export default function ProjectsPage() {
 
   const workspaceId = currentWorkspace?.id || (params.workspaceId as string);
 
+  // Initialize: fetch workspaces and set first one as current
   React.useEffect(() => {
-    async function loadData() {
-      await fetchWorkspaces();
+    if (!initialized) {
+      fetchWorkspaces().then(() => setInitialized(true));
     }
-    loadData();
-  }, [fetchWorkspaces]);
+  }, [fetchWorkspaces, initialized]);
 
+  // Fetch projects when workspace is available
   React.useEffect(() => {
-    if (workspaceId && currentWorkspace) {
+    if (workspaceId && initialized) {
       fetchProjects(workspaceId);
     }
-  }, [workspaceId, currentWorkspace, fetchProjects]);
+  }, [workspaceId, initialized, fetchProjects]);
+
+  const isLoading = wsLoading || (!initialized && projLoading);
 
   const handleCreateProject = async () => {
     if (!newProject.name || !newProject.key) {
