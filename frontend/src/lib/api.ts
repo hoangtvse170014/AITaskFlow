@@ -2,11 +2,22 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import type { ApiResponse } from "@/types";
 import toast from "react-hot-toast";
 
-// Use relative path to leverage Next.js rewrites in production
-// In development, fallback to localhost
-const API_BASE_URL = process.env.NODE_ENV === "production" 
-  ? ""  // Use relative path (Next.js rewrites will proxy to backend)
-  : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081") + "/api";
+// In production, use relative path (Next.js rewrites will proxy to backend)
+// In development or when NEXT_PUBLIC_API_URL is set, use that
+const getApiBaseUrl = () => {
+  // Server-side rendering: cannot detect host, use env var
+  if (typeof window === "undefined") {
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
+  }
+  // Client-side in production: use relative path to leverage Next.js rewrites
+  if (window.location.hostname.includes("vercel.app") || process.env.NODE_ENV === "production") {
+    return ""; // Use relative path (Next.js rewrites proxy /api/* to backend)
+  }
+  // Development: use env var or localhost
+  return (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081") + "/api";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
