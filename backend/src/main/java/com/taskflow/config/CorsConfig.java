@@ -16,9 +16,9 @@ public class CorsConfig {
     @Value("${app.cors.allowed-origins:*}")
     private String allowedOriginsConfig;
 
-    private List<String> getAllowedOrigins() {
+    private List<String> getAllowedOriginPatterns() {
         if (allowedOriginsConfig == null || allowedOriginsConfig.trim().isEmpty() || "*".equals(allowedOriginsConfig.trim())) {
-            return List.of("*");
+            return List.of("https://*");
         }
         return Arrays.stream(allowedOriginsConfig.split(","))
                 .map(String::trim)
@@ -29,12 +29,7 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        List<String> origins = getAllowedOrigins();
-        if (origins.contains("*")) {
-            configuration.setAllowedOriginPatterns(List.of("*"));
-        } else {
-            configuration.setAllowedOrigins(origins);
-        }
+        configuration.setAllowedOriginPatterns(getAllowedOriginPatterns());
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
