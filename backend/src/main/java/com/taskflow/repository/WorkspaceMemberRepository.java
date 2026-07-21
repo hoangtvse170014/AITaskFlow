@@ -21,10 +21,10 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @Query("SELECT wm FROM WorkspaceMember wm WHERE wm.workspace.id = :workspaceId AND wm.user.id = :userId AND wm.isActive = true")
     Optional<WorkspaceMember> findActiveByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
-    @Query("SELECT wm FROM WorkspaceMember wm LEFT JOIN FETCH wm.role LEFT JOIN FETCH wm.user WHERE wm.workspace.id = :workspaceId AND wm.isActive = true")
+    @Query("SELECT wm FROM WorkspaceMember wm LEFT JOIN FETCH wm.role r LEFT JOIN FETCH r.permissions LEFT JOIN FETCH wm.user WHERE wm.workspace.id = :workspaceId AND wm.isActive = true")
     List<WorkspaceMember> findAllActiveByWorkspaceId(UUID workspaceId);
 
-    @Query("SELECT wm FROM WorkspaceMember wm LEFT JOIN FETCH wm.role LEFT JOIN FETCH wm.user WHERE wm.workspace.id = :workspaceId")
+    @Query("SELECT wm FROM WorkspaceMember wm LEFT JOIN FETCH wm.role r LEFT JOIN FETCH r.permissions LEFT JOIN FETCH wm.user WHERE wm.workspace.id = :workspaceId")
     List<WorkspaceMember> findAllByWorkspaceId(UUID workspaceId);
 
     boolean existsByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
