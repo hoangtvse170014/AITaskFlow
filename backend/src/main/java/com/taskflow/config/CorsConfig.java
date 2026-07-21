@@ -14,40 +14,37 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    private final List<String> allowedOrigins;
+    @Value("${app.cors.allowed-origins:}")
+    private String allowedOriginsConfig;
 
-    public CorsConfig(@Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000}") String allowedOriginsCsv) {
-        this.allowedOrigins = Arrays.stream(allowedOriginsCsv.split(","))
+    private List<String> getAllowedOrigins() {
+        if (allowedOriginsConfig == null || allowedOriginsConfig.trim().isEmpty()) {
+            // Fallback: allow all origins in production if not configured
+            return List.of("*");
+        }
+        return Arrays.stream(allowedOriginsConfig.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toList();
     }
 
     @Bean
-    @Profile("!prod")
-    @org.springframework.context.annotation.Primary
-    public CorsConfigurationSource devCorsConfigurationSource() {
-        return buildCorsConfigurationSource(allowedOrigins);
-    }
-
-    @Bean
-    @Profile("prod")
-    @org.springframework.context.annotation.Primary
-    public CorsConfigurationSource prodCorsConfigurationSource() {
-        return buildCorsConfigurationSource(allowedOrigins);
-    }
-
-    private CorsConfigurationSource buildCorsConfigurationSource(List<String> origins) {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(origins);
+        List<String> origins = getAllowedOrigins();
+        if (origins.contains("*")) {
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            configuration.setAllowedOrigins(origins);
+        }
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }
