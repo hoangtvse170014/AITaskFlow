@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "./mvnw package -DskipTests",
+    "installCommand": "./mvnw dependency:go-offline"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10,
+    "startCommand": "java -jar target/taskflow-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod"
+  }
+}
