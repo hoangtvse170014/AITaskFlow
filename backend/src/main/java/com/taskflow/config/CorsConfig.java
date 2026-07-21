@@ -3,7 +3,6 @@ package com.taskflow.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -14,12 +13,11 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${app.cors.allowed-origins:}")
+    @Value("${app.cors.allowed-origins:*}")
     private String allowedOriginsConfig;
 
     private List<String> getAllowedOrigins() {
-        if (allowedOriginsConfig == null || allowedOriginsConfig.trim().isEmpty()) {
-            // Fallback: allow all origins in production if not configured
+        if (allowedOriginsConfig == null || allowedOriginsConfig.trim().isEmpty() || "*".equals(allowedOriginsConfig.trim())) {
             return List.of("*");
         }
         return Arrays.stream(allowedOriginsConfig.split(","))

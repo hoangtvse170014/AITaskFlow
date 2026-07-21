@@ -38,8 +38,7 @@ server:
 
 app:
   cors:
-    # CRITICAL: ALLOWED_ORIGINS must be explicitly set in production
-    allowed-origins: ${ALLOWED_ORIGINS}
+    allowed-origins: ${ALLOWED_ORIGINS:*}
 
 logging:
   level:
